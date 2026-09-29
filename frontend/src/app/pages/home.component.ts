@@ -112,10 +112,13 @@ import { GalleryItem, Post } from '../core/models';
   <!-- ================= QUOTE BAND ================= -->
   <section class="quote-band">
     <div class="qb-bg" appParallax [speed]="0.25"></div>
-    <div class="container qb-in" appReveal="blur">
-      <app-icon name="quote" class="qmark" />
-      <blockquote>{{ 'home.quote' | t }}</blockquote>
-      <cite>— {{ 'brand.person' | t }}</cite>
+    <div class="container qb-in">
+      <figure class="qb-photo" appReveal="left"><img src="img/office.jpg" alt="Muralidhar Halappa" loading="lazy"></figure>
+      <div class="qb-text" appReveal="blur">
+        <app-icon name="quote" class="qmark" />
+        <blockquote>{{ 'home.quote' | t }}</blockquote>
+        <cite>— {{ 'brand.person' | t }}</cite>
+      </div>
     </div>
   </section>
 
@@ -278,10 +281,15 @@ import { GalleryItem, Post } from '../core/models';
     .init-card p { color: var(--muted); margin: 0; transition: color .4s; }
 
     /* ---------- Quote band ---------- */
-    .quote-band { position: relative; overflow: hidden; padding: 140px 0; color: #fff; text-align: center; background: var(--m-900); }
-    .qb-bg { position: absolute; inset: -30% 0; background: linear-gradient(rgba(36,2,5,.78), rgba(58,3,8,.88)), url('/img/office.jpg') center / cover; }
-    .qb-in { position: relative; max-width: 900px; }
-    .qmark { width: 60px; height: 60px; color: var(--g-500); margin: 0 auto 20px; }
+    .quote-band { position: relative; overflow: hidden; padding: 110px 0; color: #fff; background: var(--m-900); }
+    .qb-bg { position: absolute; inset: -30% 0;
+      background: repeating-conic-gradient(from 0deg at 30% 50%, rgba(245,210,122,.06) 0deg 6deg, transparent 6deg 18deg),
+                  radial-gradient(ellipse at 30% 50%, #8a101d 0%, #4a050d 55%, #240205 100%); }
+    /* Portrait photo shown whole in a frame (a full-width background would crop the face) */
+    .qb-in { position: relative; display: grid; grid-template-columns: minmax(260px, 400px) 1fr; gap: 70px; align-items: center; }
+    .qb-photo { margin: 0; aspect-ratio: 4 / 5; border-radius: 26px; padding: 5px; background: var(--gold-grad); box-shadow: 0 40px 80px -30px rgba(0,0,0,.7); }
+    .qb-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; border-radius: 22px; display: block; }
+    .qmark { width: 60px; height: 60px; color: var(--g-500); margin-bottom: 20px; }
     blockquote { margin: 0; font-family: var(--font-head); font-size: clamp(1.6rem, 3.2vw, 2.6rem); line-height: 1.4; }
     cite { display: block; margin-top: 24px; color: var(--g-400); font-style: normal; letter-spacing: .15em; text-transform: uppercase; font-size: .85rem; }
 
@@ -317,6 +325,9 @@ import { GalleryItem, Post } from '../core/models';
       .dots { bottom: 18px; }
       .badge { width: 70px; height: 70px; left: -16px; }
       .scroll-cue { display: none; }
+      .qb-in { grid-template-columns: 1fr; gap: 36px; text-align: center; }
+      .qb-photo { width: min(300px, 72vw); margin-inline: auto; }
+      .qmark { margin-inline: auto; }
       .stats { grid-template-columns: repeat(2, 1fr); }
       .stat:nth-child(2) { border-right: 0; }
       .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
@@ -335,7 +346,7 @@ import { GalleryItem, Post } from '../core/models';
       .img-wrap { aspect-ratio: 1 / 1.05; }
       .float-card { right: -8px; bottom: 18px; padding: 10px 14px 10px 10px; }
       .float-card img { width: 40px; height: 40px; }
-      .quote-band { padding: 90px 0; }
+      .quote-band { padding: 70px 0; }
       .qmark { width: 44px; height: 44px; }
       /* Photos: tidy 2-column grid, first four only. */
       .strip-head { margin-bottom: 18px; }
