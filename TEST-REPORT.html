@@ -1,0 +1,209 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Halappa Foundation – Test Report</title>
+<style>
+:root{--m:#7a0b16;--g:#e8b64c;--ink:#2a1a14;--muted:#6d5a50;--line:#ecdcc0;--bg:#fffaf0}
+*{box-sizing:border-box}body{margin:0;font:15px/1.6 system-ui,Segoe UI,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:linear-gradient(135deg,#7a0b16,#3a0308);color:#fff;padding:32px 20px}
+header h1{margin:0 0 4px;font-size:1.7rem}header p{margin:0;color:#fbe7a1}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:-40px 0 24px}
+.tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 10px 30px -20px rgba(58,3,8,.5)}
+.tile b{display:block;font-size:1.8rem;color:var(--m)}.tile span{color:var(--muted);font-size:.85rem}
+h2{color:var(--m);margin:28px 0 10px}
+.suite{background:#fff;border:1px solid var(--line);border-radius:12px;margin:8px 0;overflow:hidden}
+.suite summary{display:flex;justify-content:space-between;gap:10px;padding:12px 16px;cursor:pointer;font-weight:600}
+.suite summary:hover{background:#fdf6e6}
+.n{border-radius:999px;padding:0 10px;font-size:.85rem;white-space:nowrap}.n.ok{background:#dff5e6;color:#1b6b3a}.n.bad{background:#fde2e4;color:#9a1220}
+.suite ul{margin:0;padding:6px 16px 14px 36px;border-top:1px solid var(--line)}
+.suite li{list-style:none;padding:3px 0}.suite li.ok{color:#1b6b3a}.suite li.bad{color:#9a1220;font-weight:600}
+.note{background:#fff;border-left:4px solid var(--g);border-radius:8px;padding:12px 16px}
+table{border-collapse:collapse;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+td,th{padding:8px 12px;border-bottom:1px solid var(--line);text-align:left}th{background:#fbf1dc}
+code{background:#fbf1dc;padding:1px 6px;border-radius:5px}
+</style></head><body>
+<header><h1>Halappa Foundation – Test Report</h1><p>Every automated test case, by area · 29/9/2026, 2:19:06 pm</p></header>
+<main>
+<div class="tiles">
+  <div class="tile"><b>174 / 174</b><span>Backend tests passed (Spring Boot)</span></div>
+  <div class="tile"><b>175 / 175</b><span>Frontend tests passed (Angular)</span></div>
+  <div class="tile"><b>95%</b><span>Backend line coverage (JaCoCo)</span></div>
+  <div class="tile"><b>92.8%</b><span>Frontend line coverage</span></div>
+</div>
+
+<div class="note"><b>Real bugs these tests caught and that are now fixed:</b> pasted WhatsApp numbers written with spaces
+(<code>+91 99887 76655</code>) were dropped; a badly formatted date in an Excel download link caused a server error instead of a clear
+message; a blank <code>{name}</code> left a stray space; mail servers with self-signed certificates couldn't be read.</div>
+
+<h2>Backend – 174 cases</h2>
+
+  <details class="suite"><summary><span class="t">Rate limiting (anti-spam / brute force)</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ Keys Are Independent</li><li class="ok">✔ Window Expires</li><li class="ok">✔ Allows Up To Max Then Blocks</li></ul></details>
+  <details class="suite"><summary><span class="t">Login tokens (JWT)</span>
+    <span class="n ok">5 / 5</span></summary>
+    <ul><li class="ok">✔ Issued Token Parses Back To Username</li><li class="ok">✔ Token From Other Secret Is Rejected</li><li class="ok">✔ Garbage Is Rejected</li><li class="ok">✔ Tampered Token Is Rejected</li><li class="ok">✔ Expired Token Is Rejected</li></ul></details>
+  <details class="suite"><summary><span class="t">Phone / email clean-up and {name} {voucher} fill-in</span>
+    <span class="n ok">7 / 7</span></summary>
+    <ul><li class="ok">✔ Personalise Blank Name Leaves No Gap</li><li class="ok">✔ Personalise Fills Name And Voucher</li><li class="ok">✔ Emails</li><li class="ok">✔ Parses Comma Semicolon Newline And Space Separated Lists</li><li class="ok">✔ Personalise Keeps Line Breaks And Kannada</li><li class="ok">✔ Parses Numbers Written With Spaces</li><li class="ok">✔ Skips Junk</li></ul></details>
+  <details class="suite"><summary><span class="t">Excel export (enquiries + summary)</span>
+    <span class="n ok">6 / 6</span></summary>
+    <ul><li class="ok">✔ Null Fields Become Empty Cells</li><li class="ok">✔ Summary Shows Period Total And Group Counts</li><li class="ok">✔ Empty List Still Produces Valid File</li><li class="ok">✔ Header Row And One Row Per Enquiry</li><li class="ok">✔ Kannada Text Survives Round Trip</li><li class="ok">✔ Has Enquiries And Summary Sheets</li></ul></details>
+  <details class="suite"><summary><span class="t">Photo uploads on disk</span>
+    <span class="n ok">6 / 6</span></summary>
+    <ul><li class="ok">✔ Stores Image And Returns Public Path</li><li class="ok">✔ Uses Extension From Content Type Not Filename</li><li class="ok">✔ Delete Ignores Seeded Images And Path Traversal</li><li class="ok">✔ Empty Or Missing File Returns Null</li><li class="ok">✔ Delete Removes Stored File</li><li class="ok">✔ Rejects Non Images</li></ul></details>
+  <details class="suite"><summary><span class="t">Excel / CSV import of recipients</span>
+    <span class="n ok">12 / 12</span></summary>
+    <ul><li class="ok">✔ Reads Old Xls Files</li><li class="ok">✔ Reports Bad Rows Duplicates And Blank Lines Are Skipped</li><li class="ok">✔ Csv With Bom Quotes And Commas</li><li class="ok">✔ Reads Columns In Any Order With Numeric Phones</li><li class="ok">✔ Garbage File Is Rejected Clearly</li><li class="ok">✔ No Header Row Guesses The Phone Column</li><li class="ok">✔ Email Only Lists</li><li class="ok">✔ Header Can Be Below ATitle Row</li><li class="ok">✔ Downloadable Template Imports Cleanly</li><li class="ok">✔ Accepts Exactly5000 And Rejects5001</li><li class="ok">✔ File Without Phone Or Email Is Rejected</li><li class="ok">✔ Understands Kannada Headers</li></ul></details>
+  <details class="suite"><summary><span class="t">Incoming email (real IMAP mailbox)</span>
+    <span class="n ok">5 / 5</span></summary>
+    <ul><li class="ok">✔ Html Only Mail Is Turned Into Text</li><li class="ok">✔ Wrong Password Is Logged Not Thrown</li><li class="ok">✔ Multipart Mail Uses The Plain Text Part</li><li class="ok">✔ New Mail Lands In The Inbox Once And Is Marked Read</li><li class="ok">✔ Does Nothing When Not Configured</li></ul></details>
+  <details class="suite"><summary><span class="t">WhatsApp number format and links</span>
+    <span class="n ok">14 / 14</span></summary>
+    <ul><li class="ok">✔ Api Disabled Without Credentials</li><li class="ok">✔ Normalizes Indian And International Numbers(String, String)</li><li class="ok">✔ Normalizes Indian And International Numbers(String, String)</li><li class="ok">✔ Normalizes Indian And International Numbers(String, String)</li><li class="ok">✔ Normalizes Indian And International Numbers(String, String)</li><li class="ok">✔ Normalizes Indian And International Numbers(String, String)</li><li class="ok">✔ Normalizes Indian And International Numbers(String, String)</li><li class="ok">✔ Rejects Invalid Numbers(String)</li><li class="ok">✔ Rejects Invalid Numbers(String)</li><li class="ok">✔ Rejects Invalid Numbers(String)</li><li class="ok">✔ Rejects Invalid Numbers(String)</li><li class="ok">✔ Rejects Invalid Numbers(String)</li><li class="ok">✔ Link Encodes Text With Percent Twenty Spaces</li><li class="ok">✔ Rejects Null</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin sign in</span>
+    <span class="n ok">7 / 7</span></summary>
+    <ul><li class="ok">✔ Blank Fields Are400</li><li class="ok">✔ Me Returns Signed In User</li><li class="ok">✔ Wrong Password Is401</li><li class="ok">✔ Change Password Flow</li><li class="ok">✔ Brute Force Is Blocked After Ten Attempts</li><li class="ok">✔ Unknown User Is401 With Same Message</li><li class="ok">✔ Correct Credentials Return Token</li></ul></details>
+  <details class="suite"><summary><span class="t">Bulk messages, vouchers, check-in, inbox (no providers)</span>
+    <span class="n ok">23 / 23</span></summary>
+    <ul><li class="ok">✔ Contact Form Submissions Appear In The Inbox As Unread</li><li class="ok">✔ Five Thousand Recipients In One Send</li><li class="ok">✔ Email And Sms Need Their Providers First</li><li class="ok">✔ Auto Vouchers Never Repeat Across Sends</li><li class="ok">✔ Webhooks Reject Callers Without Secrets</li><li class="ok">✔ Manual Send Completes When Every Link Is Opened</li><li class="ok">✔ Duplicates Are Merged And Invalid Numbers Dropped</li><li class="ok">✔ Import Endpoint And Template</li><li class="ok">✔ Campaign Apis Need Login</li><li class="ok">✔ Channels Show Nothing Connected</li><li class="ok">✔ Cancel Stops AManual Send</li><li class="ok">✔ Validation</li><li class="ok">✔ Same Voucher Code For Everyone</li><li class="ok">✔ Vouchers From The Excel File</li><li class="ok">✔ Conversations Hide Send Only Contacts Unless Asked</li><li class="ok">✔ No Voucher When Switched Off</li><li class="ok">✔ Excel Vouchers Must Be Present And Unique</li><li class="ok">✔ More Than5000 Is Refused</li><li class="ok">✔ Recipients From Enquiries By Date Range</li><li class="ok">✔ Auto Vouchers Are Numbered In Order And Put In Each Message</li><li class="ok">✔ Voucher Check In At The Event</li><li class="ok">✔ Manual Whats App Reply Gives AChat Link</li><li class="ok">✔ Export Lists Everyone With Their Voucher</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin content: posts, gallery, timeline, settings</span>
+    <span class="n ok">19 / 19</span></summary>
+    <ul><li class="ok">✔ Editing Something That No Longer Exists Is404</li><li class="ok">✔ Posts Need Login</li><li class="ok">✔ Uploaded Files Are Served</li><li class="ok">✔ Create Edit Delete Post With Image</li><li class="ok">✔ Replacing APost Image Deletes The Old File</li><li class="ok">✔ Settings Need Login</li><li class="ok">✔ Deleting APost Or Photo Deletes Its Image File</li><li class="ok">✔ Settings Update Keeps Known Keys Only</li><li class="ok">✔ Editing APost Can Move It To Another Section But Only To AValid Category</li><li class="ok">✔ Javascript Links Are Dropped</li><li class="ok">✔ Content Edit And Delete Need Login</li><li class="ok">✔ Bad Date Is Rejected</li><li class="ok">✔ Unknown Album Is Rejected</li><li class="ok">✔ Deleting Twice Is Harmless</li><li class="ok">✔ English Title Is Required</li><li class="ok">✔ Timeline Crud</li><li class="ok">✔ Upload Several Photos Then Recaption And Delete</li><li class="ok">✔ Invalid Section Category Is Rejected</li><li class="ok">✔ Non Image Upload Is Rejected</li></ul></details>
+  <details class="suite"><summary><span class="t">Queries list, search and filters</span>
+    <span class="n ok">15 / 15</span></summary>
+    <ul><li class="ok">✔ Rejects Unknown Status</li><li class="ok">✔ Updates Status And Notes</li><li class="ok">✔ Deletes Selected</li><li class="ok">✔ Search Matches Name Phone And Message Case Insensitively</li><li class="ok">✔ Delete Needs ASelection And Ignores Already Deleted Ids</li><li class="ok">✔ Enquiry Submitted On Public Site Appears For Admin</li><li class="ok">✔ Editing Notes Keeps Status And Vice Versa</li><li class="ok">✔ Date Filter Includes Both End Days</li><li class="ok">✔ Edit And Delete Need Login</li><li class="ok">✔ Updating Missing Enquiry Is404</li><li class="ok">✔ Lists Newest First</li><li class="ok">✔ Paginates</li><li class="ok">✔ Deleting Enquiries Also Removes Their Inbox Copies</li><li class="ok">✔ Filters By Status And Channel</li><li class="ok">✔ Dashboard Counts</li></ul></details>
+  <details class="suite"><summary><span class="t">Excel download by date range / ALL</span>
+    <span class="n ok">10 / 10</span></summary>
+    <ul><li class="ok">✔ Date Range Is Inclusive And Named After The Range</li><li class="ok">✔ Single Day</li><li class="ok">✔ From After To Is Rejected</li><li class="ok">✔ Download All Ignores Every Filter</li><li class="ok">✔ Bad Date Is Rejected</li><li class="ok">✔ Selected Ids Only</li><li class="ok">✔ Download Needs Login</li><li class="ok">✔ Range Combined With Status And Channel</li><li class="ok">✔ Range With No Enquiries Gives Empty Sheet</li><li class="ok">✔ Only From Date Means From That Day Onwards</li></ul></details>
+  <details class="suite"><summary><span class="t">WhatsApp / SMS / Email connected (5000 sends, receipts, replies)</span>
+    <span class="n ok">17 / 17</span></summary>
+    <ul><li class="ok">✔ Incoming Whats App Messages Land In The Inbox</li><li class="ok">✔ Sms Goes Out In Batches Of100 With Name And Voucher</li><li class="ok">✔ Webhook Signature And Verification</li><li class="ok">✔ Failures Are Recorded And Can Be Retried</li><li class="ok">✔ Free Text Message Is Personalised</li><li class="ok">✔ Channels Report Connected</li><li class="ok">✔ Bulk Email With Personal Subject And Voucher</li><li class="ok">✔ Delivery And Read Receipts Update The Counts</li><li class="ok">✔ Sends5000 Whats App Invites With Template And Vouchers</li><li class="ok">✔ Wrong Sms Key Fails The Batch With The Provider Message</li><li class="ok">✔ Incoming Sms From Json Or Form</li><li class="ok">✔ Smtp Failure Does Not Lose The Enquiry</li><li class="ok">✔ Reply To AWhats App Conversation</li><li class="ok">✔ Pause Resume And Cancel ARunning Send</li><li class="ok">✔ Contact Form Emails The Office And Acknowledges The Sender</li><li class="ok">✔ Failed Email In ABulk Send Is Marked Failed</li><li class="ok">✔ Email Reply From Inbox</li></ul></details>
+  <details class="suite"><summary><span class="t">Public website API and Contact Us form</span>
+    <span class="n ok">21 / 21</span></summary>
+    <ul><li class="ok">✔ Whatsapp Enquiry Returns Prefilled Chat Link To Foundation Number</li><li class="ok">✔ Missing Name Is Rejected</li><li class="ok">✔ Kannada Enquiry Is Stored Intact</li><li class="ok">✔ Empty Category Returns Empty Page</li><li class="ok">✔ Unknown Type Falls Back To Query</li><li class="ok">✔ Timeline Is Ordered</li><li class="ok">✔ Missing Image Is404 Not AServer Error</li><li class="ok">✔ Missing Message Is Rejected</li><li class="ok">✔ Gallery Filters By Category</li><li class="ok">✔ Too Many Submissions From One Visitor Are Throttled</li><li class="ok">✔ Honeypot Filled By Bot Is Rejected</li><li class="ok">✔ Invalid Phone Is Rejected</li><li class="ok">✔ Settings Have Contact Details In Both Languages</li><li class="ok">✔ Unknown Post Is404</li><li class="ok">✔ Page Size Is Capped</li><li class="ok">✔ Invalid Channel Is Rejected</li><li class="ok">✔ Email Enquiry Is Saved With Reference And No Whats App Link</li><li class="ok">✔ Invalid Email Is Rejected</li><li class="ok">✔ Forged Token Is Rejected</li><li class="ok">✔ Seeded Articles Are Listed Newest First With Kannada</li><li class="ok">✔ Admin Apis Need Login</li></ul></details>
+  <details class="suite"><summary><span class="t">Serving the website from the server</span>
+    <span class="n ok">4 / 4</span></summary>
+    <ul><li class="ok">✔ Api Is Not Swallowed By The Fallback</li><li class="ok">✔ Home Page</li><li class="ok">✔ Deep Links Fall Back To The App So Refresh Works</li><li class="ok">✔ Real Files Are Served As Themselves</li></ul></details>
+
+<h2>Frontend – 175 cases</h2>
+
+  <details class="suite"><summary><span class="t">Admin: Settings</span>
+    <span class="n ok">4 / 4</span></summary>
+    <ul><li class="ok">✔ social links must be full https links</li><li class="ok">✔ password: at least 8 characters and both entries must match</li><li class="ok">✔ saving refreshes the public site settings</li><li class="ok">✔ wrong current password shows the server message</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: Excel download panel</span>
+    <span class="n ok">9 / 9</span></summary>
+    <ul><li class="ok">✔ From after To shows an error and disables the download</li><li class="ok">✔ explains the range in words, both days included</li><li class="ok">✔ Download range sends dates, status and channel</li><li class="ok">✔ Download ALL ignores every filter</li><li class="ok">✔ shows the live count and disables Download range when there is nothing to download</li><li class="ok">✔ export failure shows an error message</li><li class="ok">✔ defaults to "This month" (1st to today)</li><li class="ok">✔ "Last month" handles January → December of the previous year</li><li class="ok">✔ quick buttons set the right dates</li></ul></details>
+  <details class="suite"><summary><span class="t">Gallery page</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ "All" loads every album</li><li class="ok">✔ filters by album and opens the lightbox with keyboard navigation</li></ul></details>
+  <details class="suite"><summary><span class="t">Timeline page</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ shows a friendly message when empty</li><li class="ok">✔ translates period labels in Kannada but keeps years</li><li class="ok">✔ lists milestones from the server</li></ul></details>
+  <details class="suite"><summary><span class="t">Voucher check-in</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ unknown voucher says so</li><li class="ok">✔ second check-in shows the server warning</li><li class="ok">✔ finds a voucher and marks the person attended</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: Enquiries row actions</span>
+    <span class="n ok">8 / 8</span></summary>
+    <ul><li class="ok">✔ bulk status, notes and delete for ticked rows</li><li class="ok">✔ bulk status reports partial failures</li><li class="ok">✔ status dropdown in the table saves on change, and snaps back if the save fails</li><li class="ok">✔ delete asks in the popup; "Cancel" keeps everything</li><li class="ok">✔ notes box saves what was typed</li><li class="ok">✔ Excel button exports the ticked rows only</li><li class="ok">✔ changing status saves it</li><li class="ok">✔ paging, search reset and clear</li></ul></details>
+  <details class="suite"><summary><span class="t">Inbox</span>
+    <span class="n ok">6 / 6</span></summary>
+    <ul><li class="ok">✔ refreshes every 15 seconds for new messages</li><li class="ok">✔ channel chips and the "All messages" log filter received vs sent</li><li class="ok">✔ manual WhatsApp reply opens the chat link</li><li class="ok">✔ SMS conversations explain why there is no reply box</li><li class="ok">✔ lists conversations with unread counts and opens a thread</li><li class="ok">✔ replies go out on the same channel</li></ul></details>
+  <details class="suite"><summary><span class="t">Home page</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ loads the 3 latest posts and gallery photos</li><li class="ok">✔ hero headline follows the language</li><li class="ok">✔ rotates the hero slides every 6.5 s and dots jump to a slide</li></ul></details>
+  <details class="suite"><summary><span class="t">Press / My Views / Stalwart Says list</span>
+    <span class="n ok">4 / 4</span></summary>
+    <ul><li class="ok">✔ Press shows five category tabs and loads the chosen one</li><li class="ok">✔ "Load more" fetches the next page and appends</li><li class="ok">✔ Stalwart Says has no tabs and uses quote cards</li><li class="ok">✔ empty category shows the "coming soon" message</li></ul></details>
+  <details class="suite"><summary><span class="t">Footer</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ has Press, My Views and Gallery columns plus Admin sign in</li><li class="ok">✔ hides social icons that have no link</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: queries list</span>
+    <span class="n ok">4 / 4</span></summary>
+    <ul><li class="ok">✔ with nothing selected, WhatsApp uses the current filters</li><li class="ok">✔ selecting rows and clicking WhatsApp passes the ids to Bulk WhatsApp</li><li class="ok">✔ waNum adds 91 to 10-digit numbers</li><li class="ok">✔ opening from the dashboard with ?status=new pre-filters</li></ul></details>
+  <details class="suite"><summary><span class="t">Contact Us page</span>
+    <span class="n ok">10 / 10</span></summary>
+    <ul><li class="ok">✔ shows phone, WhatsApp, email and address cards</li><li class="ok">✔ district list has all 31 districts plus "Outside Karnataka"</li><li class="ok">✔ sends the chosen language with the query</li><li class="ok">✔ "Send another message" resets the form</li><li class="ok">✔ Send via Email saves the query and shows the reference number</li><li class="ok">✔ shows the server error and closes the blank WhatsApp tab on failure</li><li class="ok">✔ does not send an empty form and shows the errors</li><li class="ok">✔ accepts common Indian mobile formats</li><li class="ok">✔ Send via WhatsApp saves the query then opens the WhatsApp chat</li><li class="ok">✔ rejects an invalid email but allows none</li></ul></details>
+  <details class="suite"><summary><span class="t">i18n dictionary</span>
+    <span class="n ok">8 / 8</span></summary>
+    <ul><li class="ok">✔ hero titles are two lines</li><li class="ok">✔ has a label for every enquiry type</li><li class="ok">✔ has every key the pages build dynamically</li><li class="ok">✔ Kannada values actually contain Kannada script (except intentional English labels)</li><li class="ok">✔ has a label for every menu category in both languages</li><li class="ok">✔ every entry has non-empty English and Kannada</li><li class="ok">✔ lists all 31 Karnataka districts, each translated, no duplicates</li><li class="ok">✔ menus match the reference footer</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: dashboard</span>
+    <span class="n ok">1 / 1</span></summary>
+    <ul><li class="ok">✔ shows the three quick actions and live counts</li></ul></details>
+  <details class="suite"><summary><span class="t">ApiService</span>
+    <span class="n ok">5 / 5</span></summary>
+    <ul><li class="ok">✔ requests posts with section, category and paging</li><li class="ok">✔ loads settings once and shares them</li><li class="ok">✔ omits empty filters</li><li class="ok">✔ posts enquiries to the public endpoint</li><li class="ok">✔ retries settings and falls back to built-in contact details so the side bar never disappears</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: Press, My Views &amp; Stalwart Says</span>
+    <span class="n ok">11 / 11</span></summary>
+    <ul><li class="ok">✔ lists posts and filters by section/category</li><li class="ok">✔ new post defaults to today and the first category of the section</li><li class="ok">✔ edit window: Save bar always visible, clicking outside keeps the edits, ✕ and Esc close</li><li class="ok">✔ delete asks first</li><li class="ok">✔ clicking Save changes in the window saves</li><li class="ok">✔ shows the server error when saving fails</li><li class="ok">✔ delete: Cancel in the popup keeps the post</li><li class="ok">✔ delete failure is reported</li><li class="ok">✔ saves every field plus the chosen image as multipart</li><li class="ok">✔ a second message is not cut short by the first one's timer</li><li class="ok">✔ English title is required</li></ul></details>
+  <details class="suite"><summary><span class="t">Header</span>
+    <span class="n ok">6 / 6</span></summary>
+    <ul><li class="ok">✔ shows phone and email from settings</li><li class="ok">✔ burger opens and closes the phone menu</li><li class="ok">✔ has a Sign in button in the top bar and the phone menu</li><li class="ok">✔ tapping the language button opens the menu (for touch screens)</li><li class="ok">✔ shows every main menu item with dropdown sub-pages</li><li class="ok">✔ language menu offers ಕನ್ನಡ and English and switches the site</li></ul></details>
+  <details class="suite"><summary><span class="t">AuthService, interceptor and guard</span>
+    <span class="n ok">8 / 8</span></summary>
+    <ul><li class="ok">✔ logout clears everything</li><li class="ok">✔ errMsg reads the server message or falls back</li><li class="ok">✔ a 401 from a public call does not sign out</li><li class="ok">✔ guard sends signed-out visitors to the login page</li><li class="ok">✔ guard lets signed-in admins through</li><li class="ok">✔ login stores token and user for this browser tab</li><li class="ok">✔ adds the token only to admin calls</li><li class="ok">✔ signs out and goes to login when an admin call returns 401</li></ul></details>
+  <details class="suite"><summary><span class="t">AdminApi endpoints</span>
+    <span class="n ok">5 / 5</span></summary>
+    <ul><li class="ok">✔ bulk messages</li><li class="ok">✔ inbox and vouchers</li><li class="ok">✔ content and settings</li><li class="ok">✔ downloadBlob saves the file with the given name</li><li class="ok">✔ dashboard and enquiries</li></ul></details>
+  <details class="suite"><summary><span class="t">Floating social bar</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ back-to-top appears after scrolling</li><li class="ok">✔ social buttons without a link yet point to the Contact page instead of disappearing</li><li class="ok">✔ always shows Mail, Facebook, WhatsApp and Instagram in that order</li></ul></details>
+  <details class="suite"><summary><span class="t">AdminApi.exportEnquiries</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ selected ids are joined</li><li class="ok">✔ all=true sends nothing else</li><li class="ok">✔ names the file from the server header</li></ul></details>
+  <details class="suite"><summary><span class="t">Confirmation popup</span>
+    <span class="n ok">7 / 7</span></summary>
+    <ul><li class="ok">✔ clicking inside the box does not close it</li><li class="ok">✔ a new question replaces an unanswered one (the old one counts as no)</li><li class="ok">✔ the main button gets focus so Enter confirms</li><li class="ok">✔ shows title, highlighted item and message; Delete answers yes</li><li class="ok">✔ Cancel, clicking outside and Esc all answer no</li><li class="ok">✔ the app never uses the browser confirm box (some browsers block it)</li><li class="ok">✔ custom button texts and icon for non-destructive questions</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: Timeline</span>
+    <span class="n ok">4 / 4</span></summary>
+    <ul><li class="ok">✔ requires an English title, then saves without sending the id in the body</li><li class="ok">✔ new milestone goes after the last one</li><li class="ok">✔ delete asks first</li><li class="ok">✔ edit window saves from its pinned footer and says so</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: Gallery</span>
+    <span class="n ok">6 / 6</span></summary>
+    <ul><li class="ok">✔ recaption, filter and delete</li><li class="ok">✔ moving a photo out of the album being viewed refreshes the list</li><li class="ok">✔ Save on a photo card sends the edited caption and album; errors are shown</li><li class="ok">✔ drag-and-drop keeps only images</li><li class="ok">✔ upload error is shown</li><li class="ok">✔ uploads several photos with album and captions</li></ul></details>
+  <details class="suite"><summary><span class="t">New bulk message</span>
+    <span class="n ok">14 / 14</span></summary>
+    <ul><li class="ok">✔ same code for everyone, or no voucher at all</li><li class="ok">✔ server errors are shown</li><li class="ok">✔ recipients by date range send the dates</li><li class="ok">✔ asks to import first and refuses more than the limit</li><li class="ok">✔ checks the date order and pasted numbers</li><li class="ok">✔ opens the progress page after sending</li><li class="ok">✔ WhatsApp API: template name and language are sent; manual switch clears the template</li><li class="ok">✔ uses the enquiries picked on the Enquiries page</li><li class="ok">✔ email adds a personalised subject</li><li class="ok">✔ defaults: WhatsApp, Excel import, auto vouchers KIT-&lt;year&gt;-0001, bilingual invite</li><li class="ok">✔ unreadable file shows the server message</li><li class="ok">✔ warns that WhatsApp will be manual without the API</li><li class="ok">✔ sends the imported people with auto vouchers</li><li class="ok">✔ importing Excel shows ready / skipped counts and switches to the file's vouchers</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: sign in page</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ asks for both fields</li><li class="ok">✔ shows the server message on wrong password</li><li class="ok">✔ goes to the dashboard after signing in</li></ul></details>
+  <details class="suite"><summary><span class="t">404 page and app shell</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ 404 links home</li><li class="ok">✔ gold progress bar runs while a page loads</li></ul></details>
+  <details class="suite"><summary><span class="t">LangService</span>
+    <span class="n ok">6 / 6</span></summary>
+    <ul><li class="ok">✔ translates keys and falls back to the key itself</li><li class="ok">✔ pipes follow the current language</li><li class="ok">✔ toggles to Kannada, switches fonts class and remembers the choice</li><li class="ok">✔ restores the saved language on next visit</li><li class="ok">✔ pick() chooses the Kannada field, falling back to English when empty</li><li class="ok">✔ defaults to English</li></ul></details>
+  <details class="suite"><summary><span class="t">Scroll behaviour</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ back-to-top ring shows scroll progress and scrolls up</li><li class="ok">✔ header turns solid after scrolling 60px</li></ul></details>
+  <details class="suite"><summary><span class="t">Routes</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ every admin page is behind the sign-in guard, the login page is not</li><li class="ok">✔ has every public page from the footer</li></ul></details>
+  <details class="suite"><summary><span class="t">Bulk message list and progress</span>
+    <span class="n ok">4 / 4</span></summary>
+    <ul><li class="ok">✔ list shows each send and which channels are connected</li><li class="ok">✔ progress page polls while running and stops when done</li><li class="ok">✔ manual WhatsApp: "Open next" opens the chat with the personal message and marks it sent</li><li class="ok">✔ pause / cancel / retry / export buttons</li></ul></details>
+  <details class="suite"><summary><span class="t">About page</span>
+    <span class="n ok">1 / 1</span></summary>
+    <ul><li class="ok">✔ shows 6 present and 3 past positions from the bio, and community reach</li></ul></details>
+  <details class="suite"><summary><span class="t">Admin: menu</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ no badge when nothing is unread, and the phone menu toggles</li><li class="ok">✔ shows every section and the unread badge on Inbox</li></ul></details>
+  <details class="suite"><summary><span class="t">paragraphs()</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ keeps single line breaks inside a paragraph</li><li class="ok">✔ splits on blank lines and trims</li><li class="ok">✔ handles empty input</li></ul></details>
+  <details class="suite"><summary><span class="t">RevealDirective &amp; CountUpDirective</span>
+    <span class="n ok">3 / 3</span></summary>
+    <ul><li class="ok">✔ bound directions are written to the DOM so CSS can style them</li><li class="ok">✔ starts hidden with direction + delay, and animates in when scrolled into view</li><li class="ok">✔ counter starts at zero and counts up to the target when visible</li></ul></details>
+  <details class="suite"><summary><span class="t">Single post page</span>
+    <span class="n ok">5 / 5</span></summary>
+    <ul><li class="ok">✔ Back goes to the previous page</li><li class="ok">✔ loads the post by id and shows each paragraph, image, author and source link</li><li class="ok">✔ no image or source → neither is shown</li><li class="ok">✔ shows "Page not found" for a missing post</li><li class="ok">✔ switches to Kannada text</li></ul></details>
+  <details class="suite"><summary><span class="t">toParams</span>
+    <span class="n ok">1 / 1</span></summary>
+    <ul><li class="ok">✔ drops empty values and joins arrays</li></ul></details>
+  <details class="suite"><summary><span class="t">personalise()</span>
+    <span class="n ok">2 / 2</span></summary>
+    <ul><li class="ok">✔ fills name and voucher like the server does</li><li class="ok">✔ default invitation is bilingual and uses both placeholders</li></ul></details>
+
+<h2>How to run</h2>
+<table><tr><th>What</th><th>Command</th></tr>
+<tr><td>Backend tests + coverage (target/site/jacoco)</td><td><code>cd backend && ./mvnw test</code></td></tr>
+<tr><td>Frontend tests + coverage (frontend/coverage)</td><td><code>cd frontend && npm run test:ci -- --code-coverage</code></td></tr></table>
+</main></body></html>

@@ -1,0 +1,94 @@
+server:
+  port: ${PORT:8090}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: halappa-foundation
+  datasource:
+    # Local default: H2 file DB under ./data. Production: set DATABASE_URL (jdbc:postgresql://...),
+    # DATABASE_USERNAME and DATABASE_PASSWORD.
+    url: ${DATABASE_URL:jdbc:h2:file:./data/halappa;MODE=PostgreSQL;AUTO_SERVER=TRUE}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:465}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: ${MAIL_SSL:true}
+          starttls:
+            enable: ${MAIL_STARTTLS:false}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+
+app:
+  jwt:
+    # Set JWT_SECRET (64+ random characters) on the server. If missing, a random one is generated at startup
+    # (admins then have to sign in again after every restart).
+    secret: ${JWT_SECRET:}
+    ttl-minutes: 720
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:4210}
+  uploads-dir: ${UPLOADS_DIR:./data/uploads}
+  # Optional: path to the built Angular app (frontend/dist/frontend/browser) so one server serves both.
+  web:
+    static-dir: ${WEB_STATIC_DIR:}
+  mail:
+    from: ${MAIL_FROM:Halappa Foundation <info@halappafoundation.in>}
+    # New enquiries are emailed here
+    notify-to: ${MAIL_NOTIFY_TO:info@halappafoundation.in}
+  seed:
+    # First admin account, created only when there is none. Without SEED_ADMIN_PASSWORD a random
+    # one-time password is generated and printed once in the server log.
+    admin-username: ${SEED_ADMIN_USERNAME:admin}
+    admin-password: ${SEED_ADMIN_PASSWORD:}
+
+  campaign:
+    max-recipients: ${CAMPAIGN_MAX_RECIPIENTS:5000}
+    # Pause between messages (keeps within provider rate limits)
+    whatsapp-delay-ms: ${CAMPAIGN_WHATSAPP_DELAY_MS:60}
+    email-delay-ms: ${CAMPAIGN_EMAIL_DELAY_MS:300}
+    sms-batch: 100
+
+# WhatsApp Business Cloud API. Blank → bulk messages run in manual (wa.me) mode.
+whatsapp:
+  token: ${WHATSAPP_TOKEN:}
+  phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+  api-version: ${WHATSAPP_API_VERSION:v21.0}
+  # Incoming messages + delivery receipts (Meta webhook → /api/webhooks/whatsapp)
+  verify-token: ${WHATSAPP_VERIFY_TOKEN:}
+  app-secret: ${WHATSAPP_APP_SECRET:}
+
+# SMS via MSG91 Flow (DLT template with variables ##name## and ##voucher##). provider: none | msg91
+sms:
+  provider: ${SMS_PROVIDER:none}
+  msg91:
+    auth-key: ${MSG91_AUTH_KEY:}
+    flow-id: ${MSG91_FLOW_ID:}
+  # Incoming SMS webhook: /api/webhooks/sms?token=<this>
+  inbound-token: ${SMS_INBOUND_TOKEN:}
+
+# Incoming email: read the foundation mailbox over IMAP (defaults to the SMTP login)
+mail:
+  imap:
+    host: ${MAIL_IMAP_HOST:}
+    port: ${MAIL_IMAP_PORT:993}
+    folder: ${MAIL_IMAP_FOLDER:INBOX}
+    poll-ms: ${MAIL_IMAP_POLL_MS:120000}
+
+management:
+  health:
+    mail:
+      enabled: false
