@@ -131,17 +131,17 @@ import { ApiService } from '../core/api.service';
     .brand:hover .logo-ring { transform: rotate(-8deg) scale(1.06); }
     .hdr.solid .logo-ring { width: 48px; height: 48px; }
     .logo-ring img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-    .brand-txt { display: flex; flex-direction: column; line-height: 1.15; }
+    .brand-txt { display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap; }
     .brand-txt b { font-family: var(--font-head); font-size: 1.3rem; color: #fff; letter-spacing: .01em; }
     .brand-txt small { color: var(--g-400); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; }
 
-    .nav { display: flex; align-items: center; gap: 4px; }
+    .nav { display: flex; align-items: center; gap: 0; }
     .nav > a, .dd > a {
       position: relative; color: #fff; text-decoration: none; font-weight: 500; font-size: .92rem;
-      padding: 10px 12px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+      padding: 10px 10px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
     }
     .nav > a::after, .dd > a::after {
-      content: ''; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 2px; background: var(--gold-grad);
+      content: ''; position: absolute; left: 10px; right: 10px; bottom: 4px; height: 2px; background: var(--gold-grad);
       transform: scaleX(0); transform-origin: right; transition: transform .45s var(--ease);
     }
     .nav > a:hover::after, .dd > a:hover::after, .nav a.active::after { transform: scaleX(1); transform-origin: left; }
@@ -207,7 +207,8 @@ import { ApiService } from '../core/api.service';
     .drawer details[open] summary app-icon { transform: rotate(180deg); }
     .drawer .btn { margin-top: 24px; align-self: flex-start; }
 
-    @media (max-width: 1180px) {
+    /* Full menu only where brand + menu + language fit on one line; otherwise the burger menu */
+    @media (max-width: 1360px) {
       .nav { display: none; }
       .burger { display: block; }
     }

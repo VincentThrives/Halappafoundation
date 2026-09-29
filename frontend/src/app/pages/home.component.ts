@@ -189,9 +189,10 @@ import { GalleryItem, Post } from '../core/models';
     .rays { position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg at 72% 45%, rgba(245,210,122,.07) 0deg 6deg, transparent 6deg 18deg); animation: spin 90s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .watermark { position: absolute; bottom: -4vw; left: -1vw; font-family: 'Playfair Display', 'Baloo Tamma 2', serif; font-weight: 800; font-size: 19vw; line-height: 1; color: transparent; -webkit-text-stroke: 1px rgba(245,210,122,.12); pointer-events: none; white-space: nowrap; }
-    .slide { position: absolute; inset: 0; display: flex; align-items: center; opacity: 0; visibility: hidden; transition: opacity 1.2s var(--ease), visibility 1.2s; }
+    /* padding-top clears the full header (top bar 40 + bar 86) so hero text never slides under it */
+    .slide { position: absolute; inset: 0; display: flex; align-items: safe center; padding: 150px 0 40px; opacity: 0; visibility: hidden; transition: opacity 1.2s var(--ease), visibility 1.2s; }
     .slide.active { opacity: 1; visibility: visible; }
-    .slide-in { display: grid; grid-template-columns: 1.15fr 1fr; gap: 50px; align-items: center; padding-top: 90px; }
+    .slide-in { display: grid; grid-template-columns: 1.15fr 1fr; gap: 50px; align-items: center; }
     .kicker { display: inline-block; color: var(--g-400); letter-spacing: .25em; text-transform: uppercase; font-size: .78rem; font-weight: 600; margin-bottom: 18px;
       opacity: 0; transform: translateY(20px); transition: all .9s var(--ease) .1s; }
     .hero h1 { color: #fff; font-size: clamp(2.5rem, 5.6vw, 5rem); line-height: 1.08; margin-bottom: 24px; }
@@ -304,7 +305,7 @@ import { GalleryItem, Post } from '../core/models';
 
     @media (max-width: 960px) {
       .hero { height: auto; min-height: 100vh; }
-      .slide { position: absolute; }
+      .slide { position: absolute; padding: 0; }
       .slide-in { grid-template-columns: 1fr; text-align: center; gap: 18px; padding-top: 84px; padding-bottom: 60px; }
       .kicker { margin-bottom: 8px; font-size: .7rem; }
       .hero h1 { margin-bottom: 12px; }
