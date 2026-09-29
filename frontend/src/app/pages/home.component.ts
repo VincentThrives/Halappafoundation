@@ -194,9 +194,9 @@ import { GalleryItem, Post } from '../core/models';
     @keyframes spin { to { transform: rotate(360deg); } }
     .watermark { position: absolute; bottom: -4vw; left: -1vw; font-family: 'Playfair Display', 'Baloo Tamma 2', serif; font-weight: 800; font-size: 19vw; line-height: 1; color: transparent; -webkit-text-stroke: 1px rgba(245,210,122,.12); pointer-events: none; white-space: nowrap; }
     /* padding-top clears the full header (top bar 40 + bar 86) so hero text never slides under it */
-    .slide { position: relative; grid-area: 1 / 1; display: flex; align-items: center; padding: 150px 0 90px; opacity: 0; visibility: hidden; transition: opacity 1.2s var(--ease), visibility 1.2s; }
+    .slide { position: relative; grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; padding: 150px 0 90px; opacity: 0; visibility: hidden; transition: opacity 1.2s var(--ease), visibility 1.2s; }
     .slide.active { opacity: 1; visibility: visible; }
-    .slide-in { display: grid; grid-template-columns: 1.15fr 1fr; gap: 50px; align-items: center; width: 100%; }
+    .slide-in { display: grid; grid-template-columns: 1.15fr 1fr; gap: 50px; align-items: center; }
     .kicker { display: inline-block; color: var(--g-400); letter-spacing: .25em; text-transform: uppercase; font-size: .78rem; font-weight: 600; margin-bottom: 18px;
       opacity: 0; transform: translateY(20px); transition: all .9s var(--ease) .1s; }
     .hero h1 { color: #fff; font-size: clamp(2.5rem, 5.6vw, 5rem); line-height: 1.08; margin-bottom: 24px; }
