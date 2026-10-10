@@ -1,0 +1,83 @@
+@if (v(); as v) {
+  <div class="head">
+    <div>
+      <h1>{{ v.campaign.name }}</h1>
+      <p>{{ v.campaign.channel | titlecase }}{{ v.campaign.mode === 'manual' ? ' (manual links)' : '' }} ·
+        {{ v.campaign.createdAt | date: 'dd MMM yyyy, h:mm a' }}
+        @if (v.campaign.voucherInfo) { · Vouchers <b class="mono">{{ v.campaign.voucherInfo }}</b> }</p>
+    </div>
+    <div class="actions">
+      <a routerLink="/admin/messages" class="btn-ghost">← All sends</a>
+      <button class="btn-ghost" (click)="export()"><app-icon name="download" /> Excel with vouchers</button>
+      @if (v.campaign.status === 'running') { <button class="btn-ghost" (click)="act('pause')">Pause</button> }
+      @if (v.campaign.status === 'paused') { <button class="btn-ghost" (click)="act('resume')">Resume</button> }
+      @if (['running', 'paused', 'manual'].includes(v.campaign.status)) { <button class="btn-ghost" (click)="act('cancel')">Cancel</button> }
+      @if (v.stats.failed && v.campaign.mode === 'api' && v.campaign.status !== 'running') {
+        <button class="btn btn-sm btn-maroon" (click)="act('retry-failed')">Retry {{ v.stats.failed }} failed</button>
+      }
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="bar"><i class="ok" [style.width.%]="pct(v.stats.sent)"></i><i class="bad" [style.width.%]="pct(v.stats.failed)"></i></div>
+    <div class="nums">
+      <div><b>{{ v.stats.total }}</b><span>Total</span></div>
+      @if (v.campaign.mode === 'manual') { <div><b>{{ v.stats.manual }}</b><span>To open</span></div> }
+      @else { <div><b>{{ v.stats.queued }}</b><span>Waiting</span></div> }
+      <div><b>{{ v.stats.sent }}</b><span>Sent</span></div>
+      @if (v.campaign.channel === 'whatsapp' && v.campaign.mode === 'api') {
+        <div><b>{{ v.stats.delivered }}</b><span>Delivered</span></div>
+        <div><b>{{ v.stats.read }}</b><span>Read</span></div>
+      }
+      <div><b class="red">{{ v.stats.failed }}</b><span>Failed</span></div>
+      <div><b>{{ v.stats.attended }}</b><span>Attended</span></div>
+      <div><span class="chip st-{{ v.campaign.status }}">{{ v.campaign.status }}</span></div>
+    </div>
+  </div>
+
+  @if (v.campaign.mode === 'manual' && v.stats.manual > 0) {
+    <div class="card stack">
+      <p class="muted" style="margin:0">Each click opens WhatsApp (phone or WhatsApp Web) with this person's message and voucher ready. Press send there, come back, open the next.</p>
+      <div><button class="btn btn-wa" (click)="openNext()"><app-icon name="whatsapp" /> Open next ({{ v.stats.total - v.stats.manual + 1 }} of {{ v.stats.total }})</button></div>
+    </div>
+  }
+
+  <div class="card">
+    <div class="filters" style="margin-bottom: 12px">
+      <input class="input grow" placeholder="Search name, number, voucher…" [(ngModel)]="q" (keyup.enter)="load(0)">
+      <select class="input" [(ngModel)]="status" (change)="load(0)">
+        <option value="">All</option><option value="queued">Waiting</option><option value="manual">To open</option>
+        <option value="sent">Sent</option><option value="read">Read</option><option value="failed">Failed</option><option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>{{ v.campaign.channel === 'email' ? 'Email' : 'Number' }}</th><th>Voucher</th><th>Status</th><th>Message</th><th></th></tr></thead>
+        <tbody>
+          @for (m of rows(); track m.id) {
+            <tr class="row">
+              <td>{{ m.name || '—' }}</td>
+              <td class="nowrap">{{ m.contact }}</td>
+              <td class="mono">{{ m.voucher }}@if (m.attendedAt) { <span class="chip resolved">attended</span> }</td>
+              <td><span class="chip st-{{ m.status }}">{{ m.status }}</span>@if (m.error) {<br><small class="red">{{ m.error }}</small>}</td>
+              <td class="msg">{{ m.body }}</td>
+              <td>
+                @if (m.status === 'manual') {
+                  <a class="btn-ghost" [href]="waLink(m)" target="_blank" rel="noopener" (click)="opened(m)"><app-icon name="whatsapp" /> Open</a>
+                }
+              </td>
+            </tr>
+          } @empty { <tr><td colspan="6" class="muted">Nothing here.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="muted">{{ total() }} people</span>
+      <div class="actions">
+        <button class="btn-ghost" [disabled]="page === 0" (click)="load(page - 1)">‹ Prev</button>
+        <button class="btn-ghost" [disabled]="(page + 1) * 50 >= total()" (click)="load(page + 1)">Next ›</button>
+      </div>
+    </div>
+  </div>
+}
+@if (toast()) { <div class="toast" [class.err]="toastErr">{{ toast() }}</div> }

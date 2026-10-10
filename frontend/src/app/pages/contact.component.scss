@@ -1,0 +1,59 @@
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: -50px; position: relative; z-index: 2; background: #fff; border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+.step { display: flex; gap: 16px; align-items: center; padding: 26px 28px; border-right: 1px solid var(--line); }
+.step:last-child { border-right: 0; }
+.step .n { width: 48px; height: 48px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--gold-grad); color: var(--m-900); font-weight: 700; font-size: 1.2rem; }
+.step b { display: block; color: var(--m-800); }
+.step small { color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 40px; align-items: start; }
+.info { display: grid; gap: 14px; }
+.info-card { display: flex; gap: 16px; align-items: center; padding: 18px 20px; border-radius: 16px; background: #fff; border: 1px solid var(--line); text-decoration: none; color: inherit; transition: transform .4s var(--ease), box-shadow .4s var(--ease), border-color .4s; }
+a.info-card:hover { transform: translateX(8px); box-shadow: var(--shadow); border-color: var(--g-500); }
+.info-card .ic { width: 52px; height: 52px; flex: none; border-radius: 14px; display: grid; place-items: center; background: var(--maroon-grad); color: var(--g-300); }
+.info-card.wa .ic { background: linear-gradient(135deg, #2bd46a, #128c4b); color: #fff; }
+.info-card.yt .ic { background: #ff0000; color: #fff; }
+.info-card small { display: block; color: var(--g-700); text-transform: uppercase; letter-spacing: .1em; font-size: .72rem; font-weight: 600; }
+.info-card b { color: var(--m-900); font-weight: 600; word-break: break-word; }
+.map { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); height: 260px; }
+.map iframe { width: 100%; height: 100%; border: 0; filter: sepia(.25) saturate(1.1); }
+
+.form-card { background: #fff; border-radius: 24px; padding: 40px; border: 1px solid var(--line); box-shadow: var(--shadow); position: relative; overflow: hidden; }
+.form-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 5px; background: var(--gold-grad); }
+.form-card h2 { font-size: 1.7rem; margin-bottom: 24px; }
+form { display: grid; gap: 18px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.send { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.send .btn { flex: 1 1 220px; }
+.err.big { margin: 0; font-size: .95rem; }
+
+.success { text-align: center; padding: 20px 0; animation: rise .8s var(--ease) both; }
+.tick { width: 90px; height: 90px; border-radius: 50%; margin: 0 auto 20px; display: grid; place-items: center; background: var(--gold-grad); color: var(--m-800); animation: pop .7s var(--ease) both .1s; }
+.tick app-icon { width: 46px; height: 46px; }
+@keyframes pop { from { transform: scale(0) rotate(-90deg); } }
+.ref { font-family: 'Playfair Display', serif; font-size: 3rem; font-weight: 800; color: var(--m-700); margin: -6px 0 16px; }
+.muted { color: var(--muted); }
+.success .btn { margin: 8px 6px 0; }
+
+/* Phones: contact details as a 2-up grid of tiles; long ones (email, address) full width. */
+@media (max-width: 640px) {
+  .steps { margin-top: -36px; }
+  .step { padding: 16px 18px; gap: 12px; }
+  .step .n { width: 38px; height: 38px; font-size: 1rem; }
+  .info { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .info-card { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; }
+  .info-card.wide, .map { grid-column: 1 / -1; }
+  .info-card.wide { flex-direction: row; align-items: center; }
+  a.info-card:hover { transform: none; }
+  .info-card .ic { width: 42px; height: 42px; border-radius: 12px; }
+  .info-card b { font-size: .92rem; }
+  .map { height: 200px; }
+  .form-card h2 { font-size: 1.4rem; }
+}
+@media (max-width: 900px) {
+  .steps { grid-template-columns: 1fr; }
+  .step { border-right: 0; border-bottom: 1px solid var(--line); }
+  .grid { grid-template-columns: 1fr; }
+  .form-card { padding: 28px 20px; }
+  .row { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,15 @@
+@if (confirm.current(); as c) {
+  <div class="bg" (click)="confirm.close(false)">
+    <div class="box" [class.danger]="c.danger" role="alertdialog" aria-modal="true"
+         [attr.aria-label]="c.title" (click)="$event.stopPropagation()">
+      <div class="ic"><app-icon [name]="c.icon || (c.danger ? 'trash' : 'check')" /></div>
+      <h2>{{ c.title }}</h2>
+      @if (c.detail) { <p class="detail">{{ c.detail }}</p> }
+      @if (c.message) { <p class="msg">{{ c.message }}</p> }
+      <div class="btns">
+        <button class="cancel" (click)="confirm.close(false)">{{ c.cancelText || 'Cancel' }}</button>
+        <button #ok class="ok" (click)="confirm.close(true)">{{ c.confirmText || (c.danger ? 'Delete' : 'Yes') }}</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,31 @@
+<div class="head"><div><h1>Dashboard</h1><p>Overview of enquiries and site content.</p></div></div>
+<div class="quick">
+  <a routerLink="/admin/enquiries" class="qa"><app-icon name="inbox" /><b>View &amp; search queries</b><span>All Contact Us requests</span></a>
+  <a routerLink="/admin/enquiries" [queryParams]="{ panel: 'download' }" class="qa"><app-icon name="download" /><b>Download Excel</b><span>By date range or all</span></a>
+  <a routerLink="/admin/messages/new" class="qa wa"><app-icon name="whatsapp" /><b>Send bulk message</b><span>WhatsApp · Email · SMS, Excel import</span></a>
+  <a routerLink="/admin/inbox" class="qa"><app-icon name="inbox" /><b>Inbox</b><span>Received &amp; sent messages</span></a>
+  <a routerLink="/admin/vouchers" class="qa"><app-icon name="check" /><b>Voucher check-in</b><span>At the event entrance</span></a>
+</div>
+@if (d(); as d) {
+  <div class="tiles">
+    <a routerLink="/admin/enquiries" class="tile hi"><app-icon name="inbox" /><b>{{ d.enquiries.total }}</b><span>Total enquiries</span></a>
+    <a routerLink="/admin/enquiries" [queryParams]="{ status: 'new' }" class="tile"><b>{{ d.enquiries['new'] }}</b><span>New</span></a>
+    <a routerLink="/admin/enquiries" [queryParams]="{ status: 'in-progress' }" class="tile"><b>{{ d.enquiries['in-progress'] }}</b><span>In progress</span></a>
+    <a routerLink="/admin/enquiries" [queryParams]="{ status: 'resolved' }" class="tile"><b>{{ d.enquiries.resolved }}</b><span>Resolved</span></a>
+    <div class="tile"><b>{{ d.enquiries.email }}</b><span>Via email</span></div>
+    <div class="tile"><b>{{ d.enquiries.whatsapp }}</b><span>Via WhatsApp</span></div>
+    <a routerLink="/admin/posts" class="tile"><b>{{ d.posts }}</b><span>Posts</span></a>
+    <a routerLink="/admin/gallery" class="tile"><b>{{ d.photos }}</b><span>Photos</span></a>
+  </div>
+  <div class="card">
+    <h2>Integrations</h2>
+    <p><span class="chip" [class.resolved]="d.mailEnabled" [class.new]="!d.mailEnabled">{{ d.mailEnabled ? 'Connected' : 'Not configured' }}</span>
+      &nbsp;<b>Email (SMTP)</b>: new enquiries are emailed to the office and the sender gets an acknowledgement.
+      @if (!d.mailEnabled) { <span class="muted"> Set MAIL_HOST / MAIL_USERNAME / MAIL_PASSWORD on the server.</span> }</p>
+    <p><span class="chip" [class.resolved]="d.whatsappApiEnabled" [class.manual]="!d.whatsappApiEnabled">{{ d.whatsappApiEnabled ? 'Cloud API' : 'Manual mode' }}</span>
+      &nbsp;<b>WhatsApp</b>: {{ d.whatsappApiEnabled ? 'bulk messages are sent automatically from the business number.' : 'bulk messages open one WhatsApp chat at a time from your phone or WhatsApp Web.' }}
+      @if (!d.whatsappApiEnabled) { <span class="muted"> Set WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID for automatic sending.</span> }</p>
+  </div>
+} @else {
+  <div class="card">Loading…</div>
+}

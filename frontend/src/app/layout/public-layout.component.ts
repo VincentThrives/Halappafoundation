@@ -8,12 +8,7 @@ import { SocialFloatComponent } from './social-float.component';
   selector: 'app-public-layout',
   standalone: true,
   imports: [RouterOutlet, HeaderComponent, FooterComponent, SocialFloatComponent],
-  template: `
-    <app-header />
-    <main><router-outlet /></main>
-    <app-footer />
-    <app-social-float />
-  `,
-  styles: [`main { min-height: 60vh; }`],
+  templateUrl: './public-layout.component.html',
+  styleUrl: './public-layout.component.scss',
 })
 export class PublicLayoutComponent {}

@@ -12,9 +12,22 @@ Bilingual (English / ಕನ್ನಡ) website for the Halappa Foundation and Mur
 # API on :8090 (H2 file DB in backend/data, no setup needed)
 cd backend && ./mvnw spring-boot:run
 
-# Web on :4210 (proxies /api and /uploads to :8090)
+# Web on :4210 (calls the API at the address in src/environments/environment.ts)
 cd frontend && npm install && npm start
 ```
+
+### Frontend environments
+
+The backend address comes from `frontend/src/environments/`:
+
+| File | Used by | `apiUrl` |
+|---|---|---|
+| `environment.ts` | `npm start`, `ng test`, `ng build --configuration development` | `http://localhost:8090` |
+| `environment.prod.ts` | `npm run build` (production; swapped in via `fileReplacements` in `angular.json`) | the hosted backend |
+
+Code keeps writing short paths (`/api/...`); `core/backend.ts` adds `apiUrl` to every API request, and the `media` pipe
+does the same for uploaded photos (`<img [src]="p.image | media">`). The backend must list the site's address in
+`CORS_ORIGINS` (local default: `http://localhost:4210`).
 
 Open http://localhost:4210. Admin panel: http://localhost:4210/admin (or **Sign in** in the site's top bar).
 The first admin account is created on first start from `SEED_ADMIN_USERNAME` (default `admin`) and `SEED_ADMIN_PASSWORD`.
@@ -56,7 +69,7 @@ Important:
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
-# Frontend: 175 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
+# Frontend: 188 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
 cd frontend && npm run test:ci
 ```
 
@@ -82,7 +95,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | First admin only (set a strong password before the first start) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |
 | `WEB_STATIC_DIR` | Path to `frontend/dist/frontend/browser` to serve the site from the same server |
-| `CORS_ORIGINS` | Only needed if the frontend is hosted on a different domain |
+| `CORS_ORIGINS` | The website's address(es), comma-separated, e.g. `https://halappafoundation.in` (the site calls the API at `apiUrl` from `environment.prod.ts`) |
 | `MAIL_*`, `MAIL_IMAP_*` | Sending and reading email (see table above) |
 | `WHATSAPP_*` | WhatsApp Cloud API + webhook |
 | `SMS_PROVIDER`, `MSG91_*`, `SMS_INBOUND_TOKEN` | SMS |

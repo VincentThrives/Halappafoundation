@@ -1,0 +1,32 @@
+<div class="head"><div><h1>Voucher check-in</h1><p>At the entrance: type or scan the voucher number and press Enter.</p></div></div>
+
+<div class="card scan">
+  <input #box class="input big" [(ngModel)]="code" (keyup.enter)="find()" placeholder="KIT-2026-0001" autocomplete="off" autocapitalize="characters">
+  <button class="btn btn-maroon" (click)="find()">Check</button>
+</div>
+
+@if (error()) { <div class="card result bad"><b>{{ error() }}</b></div> }
+
+@for (m of results(); track m.id) {
+  <div class="card result" [class.ok]="!m.attendedAt" [class.warn]="!!m.attendedAt">
+    <div class="who">
+      <span class="vch">{{ m.voucher }}</span>
+      <h2>{{ m.name || 'No name' }}</h2>
+      <p>{{ m.contact }} · sent by {{ m.channel }} · {{ m.status }}</p>
+    </div>
+    @if (m.attendedAt) {
+      <p class="already"><app-icon name="check" /> Already checked in at {{ m.attendedAt | date: 'dd MMM, h:mm a' }}</p>
+    } @else {
+      <button class="btn btn-wa" (click)="attend(m)"><app-icon name="check" /> Mark attended</button>
+    }
+  </div>
+}
+
+@if (recent().length) {
+  <div class="card">
+    <h2>Checked in just now</h2>
+    <ul class="recent">
+      @for (r of recent(); track r.id) { <li><span class="vch">{{ r.voucher }}</span> {{ r.name }} <small>{{ r.attendedAt | date: 'h:mm:ss a' }}</small></li> }
+    </ul>
+  </div>
+}

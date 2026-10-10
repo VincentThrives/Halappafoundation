@@ -32,7 +32,7 @@ export const routes: Routes = [
       { path: 'inbox', loadComponent: () => import('./admin/inbox.component').then(m => m.InboxComponent) },
       { path: 'messages', loadComponent: () => import('./admin/campaigns.component').then(m => m.CampaignsComponent) },
       { path: 'messages/new', loadComponent: () => import('./admin/new-campaign.component').then(m => m.NewCampaignComponent) },
-      { path: 'messages/:id', loadComponent: () => import('./admin/campaigns.component').then(m => m.CampaignDetailComponent) },
+      { path: 'messages/:id', loadComponent: () => import('./admin/campaign-detail.component').then(m => m.CampaignDetailComponent) },
       { path: 'vouchers', loadComponent: () => import('./admin/vouchers.component').then(m => m.VouchersComponent) },
       { path: 'whatsapp', pathMatch: 'full', redirectTo: 'messages/new' },
       { path: 'posts', loadComponent: () => import('./admin/posts.component').then(m => m.AdminPostsComponent) },

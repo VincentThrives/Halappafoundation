@@ -1,0 +1,21 @@
+<div class="wrap">
+  <form class="box" (ngSubmit)="submit()">
+    <img src="img/logo.jpg" alt="">
+    <h1>Admin sign in</h1>
+    <p>Halappa Foundation</p>
+    <div class="field">
+      <label for="u">Username</label>
+      <input id="u" class="input" name="u" [(ngModel)]="username" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="p">Password</label>
+      <div class="pw">
+        <input #pw id="p" class="input" name="p" type="password" [(ngModel)]="password" autocomplete="current-password" required>
+        <app-eye [for]="pw" />
+      </div>
+    </div>
+    @if (error()) { <p class="err">{{ error() }}</p> }
+    <button class="btn" type="submit" [disabled]="busy()">{{ busy() ? 'Signing in…' : 'Sign in' }}</button>
+    <a routerLink="/" class="back">← Back to website</a>
+  </form>
+</div>

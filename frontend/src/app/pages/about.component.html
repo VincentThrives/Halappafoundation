@@ -1,0 +1,78 @@
+<section class="page-banner">
+  <div class="container">
+    <div class="crumbs"><a routerLink="/">{{ 'nav.home' | t }}</a> / {{ 'nav.about' | t }}</div>
+    <h1>{{ 'brand.person' | t }}</h1>
+    <p class="lead">{{ 'about.lead' | t }}</p>
+  </div>
+</section>
+
+<!-- Profile -->
+<section class="section">
+  <div class="container profile">
+    <div class="portrait" appReveal="left">
+      <div class="arch"><img src="img/portrait.jpg" alt=""></div>
+      <div class="sig"><img src="img/logo.jpg" alt=""><span>{{ 'brand.name' | t }}</span></div>
+    </div>
+    <div appReveal="right">
+      <span class="eyebrow">{{ 'about.profile' | t }}</span>
+      <h2 class="section-title">{{ 'brand.person' | t }}</h2>
+      <dl class="facts">
+        @for (f of facts; track f; let i = $index) {
+          <div appReveal="up" [delay]="i * 90">
+            <dt>{{ 'about.' + f | t }}</dt>
+            <dd>{{ 'about.' + f + '.v' | t }}</dd>
+          </div>
+        }
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- Positions -->
+<section class="section positions">
+  <div class="container">
+    <div class="section-head" appReveal="up">
+      <span class="eyebrow">{{ 'about.positions' | t }}</span>
+      <h2 class="section-title">{{ 'about.positions' | t }}</h2>
+    </div>
+    <div class="pos-grid">
+      @for (n of [1, 2, 3, 4, 5, 6, 7, 8, 9]; track n; let i = $index) {
+        <div class="pos" [class.past]="n > 6" appReveal="up" [delay]="(i % 3) * 100">
+          <span class="tag">{{ (n > 6 ? 'about.past' : 'about.present') | t }}</span>
+          <h3>{{ 'pos.' + n + '.r' | t }}</h3>
+          <p>{{ 'pos.' + n + '.o' | t }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Community reach -->
+<section class="section reach">
+  <div class="container">
+    <div class="section-head" appReveal="up">
+      <span class="eyebrow light">{{ 'about.reach' | t }}</span>
+      <h2 class="section-title">{{ 'about.reach.sub' | t }}</h2>
+    </div>
+    <div class="reach-grid">
+      @for (r of reach; track r.k; let i = $index) {
+        <div class="ring" appReveal="zoom" [delay]="i * 150">
+          <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" class="bg" /><circle cx="60" cy="60" r="54" class="fg" [style.--pct]="r.n / 22" /></svg>
+          <strong><span [appCountUp]="r.n"></span></strong>
+          <small>{{ 'lakh' | t }}</small>
+          <b>{{ 'state.' + r.k | t }}</b>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Legacy -->
+<section class="section">
+  <div class="container legacy" appReveal="up">
+    <app-icon name="quote" class="q" />
+    <h2>{{ 'about.legacy.title' | t }}</h2>
+    <p>{{ 'about.legacy.text' | t }}</p>
+    <a class="btn btn-maroon" routerLink="/timeline">{{ 'nav.timeline' | t }} <app-icon name="arrow" /></a>
+  </div>
+</section>

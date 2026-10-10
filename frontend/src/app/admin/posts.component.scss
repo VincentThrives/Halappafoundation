@@ -1,0 +1,6 @@
+.thumb { width: 56px; height: 40px; object-fit: cover; border-radius: 6px; }
+.nowrap { white-space: nowrap; }
+.img-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.prev { width: 120px; height: 80px; object-fit: cover; border-radius: 10px; }
+.opt { display: flex; gap: 6px; align-items: center; font-weight: 400; }
+.err { color: var(--m-500); margin: 0; }

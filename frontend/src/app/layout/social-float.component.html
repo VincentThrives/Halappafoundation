@@ -1,0 +1,24 @@
+@if (settings$ | async; as s) {
+  <aside class="float" aria-label="Contact and social links">
+    <a class="mail" [href]="'mailto:' + s['email']" style="--i:0"><app-icon name="mail" /><span>{{ 'social.mail' | t }}</span></a>
+    @if (s['facebook']) {
+      <a class="fb" [href]="s['facebook']" target="_blank" rel="noopener" style="--i:1"><app-icon name="facebook" /><span>{{ 'social.facebook' | t }}</span></a>
+    } @else {
+      <a class="fb" routerLink="/contact" style="--i:1"><app-icon name="facebook" /><span>{{ 'social.facebook' | t }}</span></a>
+    }
+    <a class="wa" [href]="'https://wa.me/' + s['whatsapp']" target="_blank" rel="noopener" style="--i:2"><app-icon name="whatsapp" /><span>{{ 'social.whatsapp' | t }}</span></a>
+    @if (s['instagram']) {
+      <a class="ig" [href]="s['instagram']" target="_blank" rel="noopener" style="--i:3"><app-icon name="instagram" /><span>{{ 'social.instagram' | t }}</span></a>
+    } @else {
+      <a class="ig" routerLink="/contact" style="--i:3"><app-icon name="instagram" /><span>{{ 'social.instagram' | t }}</span></a>
+    }
+    @if (s['youtube']) {
+      <a class="yt" [href]="s['youtube']" target="_blank" rel="noopener" style="--i:4"><app-icon name="youtube" /><span>{{ 'social.youtube' | t }}</span></a>
+    }
+  </aside>
+}
+<button class="to-top" [class.show]="progress() > 0.08" (click)="top()" aria-label="Back to top"
+        [style.--p]="progress()">
+  <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" /></svg>
+  <app-icon name="up" />
+</button>

@@ -1,0 +1,33 @@
+<section class="page-banner">
+  <div class="container">
+    @if (post(); as p) {
+      <div class="crumbs"><a routerLink="/">{{ 'nav.home' | t }}</a> / {{ 'cat.' + p.category | t }}</div>
+      <h1>{{ p | loc: 'title' }}</h1>
+      <p class="lead">
+        @if (p.author) { {{ 'list.by' | t }} {{ p.author }} · }
+        {{ p.publishedOn | date: 'longDate' }}
+      </p>
+    } @else {
+      <h1>&nbsp;</h1>
+    }
+  </div>
+</section>
+
+<section class="section">
+  <article class="container reader">
+    @if (post(); as p) {
+      @if (p.image) { <img class="hero-img" [src]="p.image | media" alt="" appReveal="zoom"> }
+      @for (para of body(); track $index) { <p appReveal="up">{{ para }}</p> }
+      <div class="actions">
+        <button class="btn btn-maroon btn-sm" (click)="back()"><app-icon name="arrow" class="flip" /> {{ 'list.back' | t }}</button>
+        @if (p.sourceUrl) {
+          <a class="btn btn-sm" [href]="p.sourceUrl" target="_blank" rel="noopener">{{ 'list.source' | t }} <app-icon name="external" /></a>
+        }
+      </div>
+    } @else if (missing()) {
+      <div class="empty">{{ 'notfound' | t }}</div>
+    } @else {
+      <div class="skeleton" style="height: 320px"></div>
+    }
+  </article>
+</section>

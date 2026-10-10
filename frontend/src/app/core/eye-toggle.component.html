@@ -1,0 +1,4 @@
+<button type="button" (click)="toggle()" [attr.aria-label]="shown ? 'Hide password' : 'Show password'"
+        [attr.aria-pressed]="shown" [title]="shown ? 'Hide password' : 'Show password'">
+  <app-icon [name]="shown ? 'eye-off' : 'eye'" />
+</button>

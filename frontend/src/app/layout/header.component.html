@@ -1,0 +1,91 @@
+<header class="hdr" [class.solid]="scrolled()" [class.drawer-open]="drawer()">
+  <div class="topbar">
+    <div class="container tb-in">
+      @if (settings$ | async; as s) {
+        <div class="tb-contacts">
+          <a [href]="'tel:+91' + s['phone']"><app-icon name="phone" /> +91 {{ s['phone'] }}</a>
+          <a [href]="'mailto:' + s['email']"><app-icon name="mail" /> {{ s['email'] }}</a>
+        </div>
+      }
+      <div class="tb-right">
+        <span class="tb-tag">{{ 'brand.tagline' | t }}</span>
+        <a routerLink="/admin/login" class="tb-signin"><app-icon name="logout" /> {{ 'nav.signin' | t }}</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="container bar">
+    <a routerLink="/" class="brand" aria-label="Home">
+      <span class="logo-ring"><img src="img/logo.jpg" alt="Halappa Foundation logo"></span>
+      <span class="brand-txt">
+        <b>{{ 'brand.name' | t }}</b>
+        <small>{{ 'brand.person' | t }}</small>
+      </span>
+    </a>
+
+    <nav class="nav" aria-label="Main">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">{{ 'nav.home' | t }}</a>
+      <a routerLink="/about" routerLinkActive="active">{{ 'nav.about' | t }}</a>
+      <a routerLink="/stalwart-says" routerLinkActive="active">{{ 'nav.stalwart' | t }}</a>
+      <div class="dd">
+        <a routerLink="/press" routerLinkActive="active">{{ 'nav.press' | t }} <app-icon name="chev" /></a>
+        <div class="dd-menu">
+          @for (c of menu.press; track c) { <a [routerLink]="['/press', c]" routerLinkActive="on">{{ 'cat.' + c | t }}</a> }
+        </div>
+      </div>
+      <div class="dd">
+        <a routerLink="/my-views" routerLinkActive="active">{{ 'nav.views' | t }} <app-icon name="chev" /></a>
+        <div class="dd-menu">
+          @for (c of menu.views; track c) { <a [routerLink]="['/my-views', c]" routerLinkActive="on">{{ 'cat.' + c | t }}</a> }
+        </div>
+      </div>
+      <div class="dd">
+        <a routerLink="/gallery" routerLinkActive="active">{{ 'nav.gallery' | t }} <app-icon name="chev" /></a>
+        <div class="dd-menu">
+          @for (c of menu.gallery; track c) { <a [routerLink]="['/gallery', c]" routerLinkActive="on">{{ 'cat.' + c | t }}</a> }
+        </div>
+      </div>
+      <a routerLink="/timeline" routerLinkActive="active">{{ 'nav.timeline' | t }}</a>
+      <a routerLink="/contact" routerLinkActive="active">{{ 'nav.contact' | t }}</a>
+    </nav>
+
+    <div class="lang-dd" [class.open]="langOpen()" (mouseleave)="langOpen.set(false)">
+      <button class="lang" (click)="langOpen.set(!langOpen())" aria-label="Choose language" [attr.aria-expanded]="langOpen()">
+        <app-icon name="globe" /><span>{{ lang.lang() === 'kn' ? 'ಕನ್ನಡ' : 'English' }}</span><app-icon name="chev" class="chev" />
+      </button>
+      <div class="lang-menu" role="menu">
+        <button role="menuitemradio" [attr.aria-checked]="lang.lang() === 'kn'" [class.on]="lang.lang() === 'kn'" (click)="pickLang('kn')">
+          <b>ಕನ್ನಡ</b><small>Kannada</small>
+        </button>
+        <button role="menuitemradio" [attr.aria-checked]="lang.lang() === 'en'" [class.on]="lang.lang() === 'en'" (click)="pickLang('en')">
+          <b>English</b><small>ಇಂಗ್ಲಿಷ್</small>
+        </button>
+      </div>
+    </div>
+    <button class="burger" (click)="drawer.set(!drawer())" [attr.aria-expanded]="drawer()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+
+  <!-- Mobile drawer -->
+  <div class="drawer" [class.show]="drawer()">
+    <nav>
+      <a routerLink="/" style="--i:0">{{ 'nav.home' | t }}</a>
+      <a routerLink="/about" style="--i:1">{{ 'nav.about' | t }}</a>
+      <a routerLink="/stalwart-says" style="--i:2">{{ 'nav.stalwart' | t }}</a>
+      <details style="--i:3"><summary>{{ 'nav.press' | t }} <app-icon name="chev" /></summary>
+        @for (c of menu.press; track c) { <a [routerLink]="['/press', c]">{{ 'cat.' + c | t }}</a> }
+      </details>
+      <details style="--i:4"><summary>{{ 'nav.views' | t }} <app-icon name="chev" /></summary>
+        @for (c of menu.views; track c) { <a [routerLink]="['/my-views', c]">{{ 'cat.' + c | t }}</a> }
+      </details>
+      <details style="--i:5"><summary>{{ 'nav.gallery' | t }} <app-icon name="chev" /></summary>
+        @for (c of menu.gallery; track c) { <a [routerLink]="['/gallery', c]">{{ 'cat.' + c | t }}</a> }
+      </details>
+      <a routerLink="/timeline" style="--i:6">{{ 'nav.timeline' | t }}</a>
+      <a routerLink="/contact" style="--i:7">{{ 'nav.contact' | t }}</a>
+      <a routerLink="/admin/login" style="--i:8"><span><app-icon name="logout" /> {{ 'nav.signin' | t }}</span></a>
+      <button class="btn btn-sm" style="--i:9" (click)="lang.toggle()"><app-icon name="globe" /> {{ 'lang.switch' | t }}</button>
+    </nav>
+  </div>
+</header>

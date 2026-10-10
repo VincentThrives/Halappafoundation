@@ -9,6 +9,7 @@ import { LangService } from '../core/lang.service';
 import { apiStub, provideApiStub, stubIntersectionObserver } from '../testing';
 import { HeaderComponent } from '../layout/header.component';
 import { SocialFloatComponent } from '../layout/social-float.component';
+import { environment } from '../../environments/environment';
 
 describe('Single post page', () => {
   function make(post: any, fail = false) {
@@ -37,7 +38,8 @@ describe('Single post page', () => {
     expect(api.post).toHaveBeenCalledWith(4);
     expect(f.nativeElement.querySelector('h1').textContent).toContain('Job Mela');
     expect(f.nativeElement.querySelectorAll('.reader p').length).toBe(2);
-    expect(f.nativeElement.querySelector('.hero-img').getAttribute('src')).toBe('/uploads/a.png');
+    // Uploaded photos are served by the backend, so they get its address from the environment.
+    expect(f.nativeElement.querySelector('.hero-img').getAttribute('src')).toBe(environment.apiUrl + '/uploads/a.png');
     expect(f.nativeElement.querySelector('.lead').textContent).toContain('Staff');
     const src = f.nativeElement.querySelector('a[href="https://news.example/a"]');
     expect(src.getAttribute('rel')).toBe('noopener');

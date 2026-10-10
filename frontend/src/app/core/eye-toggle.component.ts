@@ -9,19 +9,8 @@ import { IconComponent } from './icon.component';
   selector: 'app-eye',
   standalone: true,
   imports: [IconComponent],
-  template: `
-    <button type="button" (click)="toggle()" [attr.aria-label]="shown ? 'Hide password' : 'Show password'"
-            [attr.aria-pressed]="shown" [title]="shown ? 'Hide password' : 'Show password'">
-      <app-icon [name]="shown ? 'eye-off' : 'eye'" />
-    </button>
-  `,
-  styles: [`
-    :host { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
-    button { width: 38px; height: 38px; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
-      display: grid; place-items: center; color: var(--muted); transition: background .2s, color .2s; }
-    button:hover, button[aria-pressed="true"] { background: var(--cream-2); color: var(--m-700); }
-    app-icon { width: 20px; height: 20px; }
-  `],
+  templateUrl: './eye-toggle.component.html',
+  styleUrl: './eye-toggle.component.scss',
 })
 export class EyeToggleComponent {
   @Input({ required: true }) for!: HTMLInputElement;

@@ -1,0 +1,17 @@
+.quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.qa { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; padding: 20px; border-radius: 16px; text-decoration: none; background: var(--maroon-grad); color: #fff; transition: transform .25s, box-shadow .25s; }
+.qa:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.qa app-icon { grid-row: span 2; width: 44px; height: 44px; padding: 10px; border-radius: 12px; background: var(--gold-grad); color: var(--m-900); }
+.qa b { font-size: 1.05rem; }
+.qa span { color: rgba(255,255,255,.75); font-size: .85rem; }
+.qa.wa { background: linear-gradient(135deg, #1fb855, #0c6b39); }
+.qa.wa app-icon { background: #fff; color: #128c4b; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.tile { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 20px; text-decoration: none; color: inherit; display: grid; gap: 4px; transition: transform .25s, box-shadow .25s; }
+a.tile:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.tile b { font-size: 2rem; font-family: 'Playfair Display', serif; color: var(--m-700); line-height: 1; }
+.tile span { color: var(--muted); font-size: .88rem; }
+.tile.hi { background: var(--maroon-grad); color: #fff; }
+.tile.hi b { color: var(--g-300); }
+.tile.hi span { color: rgba(255,255,255,.8); }
+.tile app-icon { color: var(--g-400); }

@@ -1,0 +1,101 @@
+<div class="head">
+  <div><h1>Press, My Views &amp; Stalwart Says</h1><p>Everything here appears on the public site in English and Kannada.</p></div>
+  <button class="btn btn-maroon btn-sm" (click)="edit()"><app-icon name="plus" /> New post</button>
+</div>
+
+<div class="card">
+  <div class="filters">
+    <select class="input" [(ngModel)]="fSection" (change)="fCategory = ''; load(0)">
+      <option value="">All sections</option>
+      @for (s of sectionKeys; track s) { <option [value]="s">{{ sections[s].label }}</option> }
+    </select>
+    @if (fSection) {
+      <select class="input" [(ngModel)]="fCategory" (change)="load(0)">
+        <option value="">All categories</option>
+        @for (c of sections[fSection].cats; track c) { <option [value]="c">{{ c }}</option> }
+      </select>
+    }
+  </div>
+</div>
+
+<div class="card">
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th></th><th>Title</th><th>Section</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        @for (p of rows(); track p.id) {
+          <tr class="row">
+            <td style="width:64px">@if (p.image) { <img [src]="p.image | media" class="thumb" alt=""> }</td>
+            <td><b>{{ p.titleEn }}</b>@if (p.titleKn) {<br><span class="muted">{{ p.titleKn }}</span>}</td>
+            <td><span class="chip manual">{{ sections[p.section].label }} · {{ p.category }}</span></td>
+            <td class="nowrap">{{ p.publishedOn | date: 'dd MMM yyyy' }}</td>
+            <td class="nowrap">
+              <button class="icon-btn" (click)="edit(p)" title="Edit"><app-icon name="edit" /></button>
+              <button class="icon-btn danger" (click)="remove(p)" title="Delete"><app-icon name="trash" /></button>
+            </td>
+          </tr>
+        } @empty { <tr><td colspan="5" class="muted" style="text-align:center; padding: 30px">No posts yet.</td></tr> }
+      </tbody>
+    </table>
+  </div>
+  <div class="pager">
+    <span class="muted">{{ total() }} posts</span>
+    <div class="actions">
+      <button class="btn-ghost" [disabled]="page === 0" (click)="load(page - 1)">‹ Prev</button>
+      <button class="btn-ghost" [disabled]="(page + 1) * 20 >= total()" (click)="load(page + 1)">Next ›</button>
+    </div>
+  </div>
+</div>
+
+@if (form(); as f) {
+  <!-- Clicking outside does NOT close: it used to throw away edits by accident. -->
+  <div class="modal-bg">
+    <div class="modal" role="dialog" aria-modal="true" [attr.aria-label]="f.id ? 'Edit post' : 'New post'">
+      <div class="modal-head">
+        <h2>{{ f.id ? 'Edit post' : 'New post' }}</h2>
+        <button class="modal-x" (click)="form.set(null)" aria-label="Close"><app-icon name="close" /></button>
+      </div>
+      <div class="modal-body stack">
+        <div class="grid3">
+          <div class="field"><label>Section</label>
+            <select class="input" [(ngModel)]="f.section" (change)="f.category = sections[f.section].cats[0]">
+              @for (s of sectionKeys; track s) { <option [value]="s">{{ sections[s].label }}</option> }
+            </select></div>
+          <div class="field"><label>Category</label>
+            <select class="input" [(ngModel)]="f.category">
+              @for (c of sections[f.section].cats; track c) { <option [value]="c">{{ c }}</option> }
+            </select></div>
+          <div class="field"><label>Date</label><input class="input" type="date" [(ngModel)]="f.publishedOn"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Title <span class="lang-tag">EN</span> *</label><input class="input" [(ngModel)]="f.titleEn"></div>
+          <div class="field"><label>Title <span class="lang-tag">ಕನ್ನಡ</span></label><input class="input" [(ngModel)]="f.titleKn"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>{{ f.section === 'stalwart' || f.category === 'quotes' ? 'Quote' : 'Body' }} <span class="lang-tag">EN</span></label>
+            <textarea class="input" rows="9" [(ngModel)]="f.bodyEn" placeholder="Leave a blank line between paragraphs"></textarea></div>
+          <div class="field"><label>{{ f.section === 'stalwart' || f.category === 'quotes' ? 'Quote' : 'Body' }} <span class="lang-tag">ಕನ್ನಡ</span></label>
+            <textarea class="input" rows="9" [(ngModel)]="f.bodyKn"></textarea></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>{{ f.section === 'stalwart' ? 'Who said it (name)' : 'Author / publication' }}</label><input class="input" [(ngModel)]="f.author"></div>
+          <div class="field"><label>Source link (optional)</label><input class="input" [(ngModel)]="f.sourceUrl" placeholder="https://…"></div>
+        </div>
+        <div class="field">
+          <label>{{ f.section === 'stalwart' ? 'Photo of the person' : 'Cover image' }}</label>
+          <div class="img-row">
+            @if (preview() || (f.image && !f.removeImage)) { <img [src]="preview() || (f.image | media)" class="prev" alt=""> }
+            <input type="file" accept="image/*" (change)="pick($event)">
+            @if (f.image && !preview()) { <label class="opt"><input type="checkbox" [(ngModel)]="f.removeImage"> Remove image</label> }
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        @if (error()) { <p class="err">{{ error() }}</p> }
+        <button class="btn-ghost" (click)="form.set(null)">Cancel</button>
+        <button class="btn btn-maroon" (click)="save(f)" [disabled]="busy()"><app-icon name="check" /> {{ busy() ? 'Saving…' : (f.id ? 'Save changes' : 'Publish') }}</button>
+      </div>
+    </div>
+  </div>
+}
+@if (toast()) { <div class="toast" [class.err]="toastErr">{{ toast() }}</div> }

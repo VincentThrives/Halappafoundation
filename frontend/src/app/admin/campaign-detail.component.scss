@@ -1,0 +1,16 @@
+.mono { font-family: monospace; }
+.nowrap { white-space: nowrap; }
+.red { color: #b3261e; }
+.msg { max-width: 360px; white-space: pre-wrap; font-size: .85rem; color: var(--muted); }
+.bar { height: 12px; border-radius: 12px; background: var(--cream-2); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; transition: width .5s; }
+.bar .ok { background: linear-gradient(90deg, #2bd46a, #128c4b); }
+.bar .bad { background: #d9534f; }
+.nums { display: flex; flex-wrap: wrap; gap: 26px; margin-top: 16px; align-items: center; }
+.nums b { display: block; font-size: 1.8rem; font-family: 'Playfair Display', serif; color: var(--m-700); line-height: 1; }
+.nums span { color: var(--muted); font-size: .8rem; }
+.st-running, .st-queued { background: #dff0ff; color: #0b5a9a; }
+.st-done, .st-sent, .st-delivered, .st-read { background: #dff5e6; color: #1b6b3a; }
+.st-paused, .st-manual { background: #fff1c9; color: #8a5a00; }
+.st-cancelled { background: #eee; color: #555; }
+.st-failed { background: #fde2e4; color: #9a1220; }

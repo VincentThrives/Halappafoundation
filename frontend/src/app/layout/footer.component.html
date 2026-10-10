@@ -1,0 +1,53 @@
+<footer class="ftr">
+  <div class="glow"></div>
+  <div class="container">
+    <div class="top" appReveal="up">
+      <a routerLink="/" class="f-brand">
+        <img src="img/logo.jpg" alt="">
+        <span><b>{{ 'brand.name' | t }}</b><small>{{ 'brand.person' | t }}</small></span>
+      </a>
+      <p>{{ 'footer.about' | t }}</p>
+      @if (settings$ | async; as s) {
+        <div class="socials">
+          <a [href]="'mailto:' + s['email']" aria-label="Email"><app-icon name="mail" /></a>
+          @if (s['facebook']) { <a [href]="s['facebook']" target="_blank" rel="noopener" aria-label="Facebook"><app-icon name="facebook" /></a> }
+          <a [href]="'https://wa.me/' + s['whatsapp']" target="_blank" rel="noopener" aria-label="WhatsApp"><app-icon name="whatsapp" /></a>
+          @if (s['instagram']) { <a [href]="s['instagram']" target="_blank" rel="noopener" aria-label="Instagram"><app-icon name="instagram" /></a> }
+          @if (s['youtube']) { <a [href]="s['youtube']" target="_blank" rel="noopener" aria-label="YouTube"><app-icon name="youtube" /></a> }
+          @if (s['twitter']) { <a [href]="s['twitter']" target="_blank" rel="noopener" aria-label="X"><app-icon name="x" /></a> }
+        </div>
+      }
+    </div>
+
+    <div class="cols">
+      <div appReveal="up" [delay]="0">
+        <h4>{{ 'nav.press' | t }}</h4>
+        @for (c of menu.press; track c) { <a [routerLink]="['/press', c]">{{ 'cat.' + c | t }}</a> }
+      </div>
+      <div appReveal="up" [delay]="100">
+        <h4>{{ 'nav.views' | t }}</h4>
+        @for (c of menu.views; track c) { <a [routerLink]="['/my-views', c]">{{ 'cat.' + c | t }}</a> }
+      </div>
+      <div appReveal="up" [delay]="200">
+        <h4>{{ 'nav.gallery' | t }}</h4>
+        @for (c of menu.gallery; track c) { <a [routerLink]="['/gallery', c]">{{ 'cat.' + c | t }}</a> }
+      </div>
+      <div appReveal="up" [delay]="300" class="main-links">
+        <a routerLink="/">{{ 'nav.home' | t }}</a>
+        <a routerLink="/about">{{ 'nav.about' | t }}</a>
+        <a routerLink="/stalwart-says">{{ 'nav.stalwart' | t }}</a>
+        <a routerLink="/press">{{ 'nav.press' | t }}</a>
+        <a routerLink="/my-views">{{ 'nav.views' | t }}</a>
+        <a routerLink="/gallery">{{ 'nav.gallery' | t }}</a>
+        <a routerLink="/timeline">{{ 'nav.timeline' | t }}</a>
+        <a routerLink="/contact">{{ 'nav.contact' | t }}</a>
+      </div>
+    </div>
+  </div>
+  <div class="bottom">
+    <div class="container b-in">
+      <span>© {{ year }} {{ 'brand.name' | t }}. {{ 'footer.rights' | t }}</span>
+      <a routerLink="/admin/login" class="signin"><app-icon name="logout" /> {{ 'footer.admin' | t }}</a>
+    </div>
+  </div>
+</footer>

@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { ConfirmDialogComponent, ConfirmService } from './confirm.service';
+import { ConfirmService } from './confirm.service';
+import { ConfirmDialogComponent } from './confirm-dialog.component';
 
 describe('Confirmation popup', () => {
   let svc: ConfirmService;

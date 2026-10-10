@@ -1,0 +1,13 @@
+.scan { display: flex; gap: 10px; }
+.big { flex: 1; min-width: 0; font-size: 1.6rem; font-family: monospace; letter-spacing: .08em; text-transform: uppercase; padding: 14px 18px; }
+@media (max-width: 600px) { .big { font-size: 1.1rem; letter-spacing: .02em; padding: 12px; } }
+.result { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-left: 6px solid var(--line); }
+.result.ok { border-left-color: #1fb855; }
+.result.warn { border-left-color: var(--g-500); background: #fffaf0; }
+.result.bad { border-left-color: #b3261e; color: #b3261e; }
+.who h2 { margin: 6px 0 2px; font-size: 1.5rem; }
+.who p { margin: 0; color: var(--muted); }
+.vch { font-family: monospace; background: var(--g-300); color: var(--m-900); padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+.already { color: #8a5a00; font-weight: 600; display: flex; gap: 6px; align-items: center; margin: 0; }
+.recent { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.recent small { color: var(--muted); }

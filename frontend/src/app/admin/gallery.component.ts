@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { MediaPipe } from '../core/backend';
 import { FormsModule } from '@angular/forms';
 import { AdminApi } from './admin-api.service';
 import { IconComponent } from '../core/icon.component';
@@ -10,66 +11,9 @@ import { GalleryItem } from '../core/models';
 @Component({
   selector: 'app-admin-gallery',
   standalone: true,
-  imports: [FormsModule, IconComponent],
-  styleUrl: './admin.scss',
-  template: `
-    <div class="head"><div><h1>Gallery</h1><p>Upload photos into the five gallery albums.</p></div></div>
-
-    <div class="card stack">
-      <h2>Upload photos</h2>
-      <div class="grid3">
-        <div class="field"><label>Album</label>
-          <select class="input" [(ngModel)]="category">@for (c of cats; track c) { <option [value]="c">{{ c }}</option> }</select></div>
-        <div class="field"><label>Caption <span class="lang-tag">EN</span></label><input class="input" [(ngModel)]="captionEn"></div>
-        <div class="field"><label>Caption <span class="lang-tag">ಕನ್ನಡ</span></label><input class="input" [(ngModel)]="captionKn"></div>
-      </div>
-      <label class="drop" [class.over]="over()" (dragover)="$event.preventDefault(); over.set(true)" (dragleave)="over.set(false)" (drop)="drop($event)">
-        <input type="file" accept="image/*" multiple (change)="pick($event)">
-        <app-icon name="image" />
-        <span>{{ files().length ? files().length + ' photo(s) ready' : 'Click or drop photos here (up to 10 MB each)' }}</span>
-      </label>
-      @if (error()) { <p class="err">{{ error() }}</p> }
-      <div><button class="btn btn-maroon" (click)="upload()" [disabled]="!files().length || busy()">{{ busy() ? 'Uploading…' : 'Upload' }}</button></div>
-    </div>
-
-    <div class="card">
-      <div class="filters" style="margin-bottom: 14px">
-        <select class="input" [(ngModel)]="filter" (change)="load()">
-          <option value="">All albums</option>@for (c of cats; track c) { <option [value]="c">{{ c }}</option> }
-        </select>
-        <span class="muted">{{ items().length }} photos</span>
-      </div>
-      <div class="grid">
-        @for (g of items(); track g.id) {
-          <div class="ph">
-            <img [src]="g.image" alt="" loading="lazy">
-            <div class="meta">
-              <select class="input sm" [(ngModel)]="g.category">@for (c of cats; track c) { <option [value]="c">{{ c }}</option> }</select>
-              <input class="input sm" [(ngModel)]="g.captionEn" placeholder="Caption (EN)">
-              <input class="input sm" [(ngModel)]="g.captionKn" placeholder="ಶೀರ್ಷಿಕೆ (KN)">
-              <div class="actions">
-                <button class="btn-ghost" (click)="save(g)">Save</button>
-                <button class="icon-btn danger" (click)="remove(g)" title="Delete"><app-icon name="trash" /></button>
-              </div>
-            </div>
-          </div>
-        } @empty { <p class="muted">No photos yet.</p> }
-      </div>
-    </div>
-    @if (toast()) { <div class="toast" [class.err]="toastErr">{{ toast() }}</div> }
-  `,
-  styles: [`
-    .drop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px; border: 2px dashed var(--line); border-radius: 14px; cursor: pointer; color: var(--muted); transition: all .2s; }
-    .drop.over, .drop:hover { border-color: var(--g-500); background: var(--cream); }
-    .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    .drop app-icon { width: 40px; height: 40px; color: var(--g-600); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-    .ph { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
-    .ph img { width: 100%; height: 160px; object-fit: cover; }
-    .meta { padding: 10px; display: grid; gap: 6px; }
-    .sm { padding: 7px 10px; font-size: .85rem; }
-    .err { color: var(--m-500); margin: 0; }
-  `],
+  imports: [MediaPipe, FormsModule, IconComponent],
+  templateUrl: './gallery.component.html',
+  styleUrls: ['./admin.scss', './gallery.component.scss'],
 })
 export class AdminGalleryComponent {
   private api = inject(AdminApi);

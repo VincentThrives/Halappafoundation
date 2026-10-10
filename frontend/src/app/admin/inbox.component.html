@@ -1,0 +1,121 @@
+<div class="head">
+  <div><h1>Inbox</h1><p>Messages received and sent on WhatsApp, email, SMS and the website.</p></div>
+  <div class="seg">
+    <button [class.on]="tab() === 'conv'" (click)="tab.set('conv')">Conversations</button>
+    <button [class.on]="tab() === 'log'" (click)="tab.set('log'); loadLog(0)">All messages</button>
+  </div>
+</div>
+
+<div class="chips">
+  @for (c of channelFilters; track c.key) {
+    <button class="pill" [class.on]="channel === c.key" (click)="channel = c.key; reload()">
+      @if (c.key) { <app-icon [name]="icon(c.key)" /> } {{ c.label }}
+    </button>
+  }
+</div>
+
+<!-- ===== Conversations ===== -->
+@if (tab() === 'conv') {
+  <div class="inbox" [class.has-thread]="!!open()">
+    <aside class="list card">
+      <div class="filters">
+        <input class="input grow" placeholder="Search name, number, text, voucher…" [(ngModel)]="q" (keyup.enter)="loadThreads()">
+      </div>
+      <label class="opt small"><input type="checkbox" [(ngModel)]="includeSent" (change)="loadThreads()"> Include people we only sent to</label>
+      @for (t of threads(); track t.channel + t.contact) {
+        <button class="thr" [class.on]="isOpen(t)" [class.unread]="t.unread > 0" (click)="openThread(t)">
+          <span class="av" [class]="'av ' + t.channel"><app-icon [name]="icon(t.channel)" /></span>
+          <span class="meta">
+            <b>{{ t.name || t.contact }}</b>
+            <small class="snip">{{ t.lastDirection === 'out' ? 'You: ' : '' }}{{ t.lastBody }}</small>
+          </span>
+          <span class="side">
+            <small>{{ t.lastAt | date: 'dd MMM, h:mm a' }}</small>
+            @if (t.unread) { <i class="badge">{{ t.unread }}</i> }
+          </span>
+        </button>
+      } @empty { <p class="muted pad">No conversations yet.</p> }
+      @if (threadsTotal() > threads().length) { <button class="btn-ghost more" (click)="moreThreads()">Load more</button> }
+    </aside>
+
+    <section class="thread card">
+      @if (open(); as o) {
+        <header>
+          <button class="btn-ghost back" (click)="open.set(null)">←</button>
+          <span class="av" [class]="'av ' + o.channel"><app-icon [name]="icon(o.channel)" /></span>
+          <div><b>{{ o.name || o.contact }}</b><small>{{ label(o.channel) }} · {{ o.contact }}</small></div>
+        </header>
+        <div class="msgs" #box>
+          @for (m of messages(); track m.id) {
+            <div class="msg" [class.out]="m.direction === 'out'">
+              @if (m.subject && o.channel === 'email') { <b class="subj">{{ m.subject }}</b> }
+              <div class="text">{{ m.body }}</div>
+              <div class="foot">
+                @if (m.voucher) { <span class="vch">🎟 {{ m.voucher }}</span> }
+                <span>{{ m.createdAt | date: 'dd MMM, h:mm a' }}</span>
+                @if (m.direction === 'out') { <span class="tick" [title]="m.error || m.status">{{ tick(m.status) }}</span> }
+              </div>
+              @if (m.error) { <small class="red">{{ m.error }}</small> }
+            </div>
+          }
+        </div>
+        @if (o.channel === 'sms') {
+          <p class="muted pad">SMS replies need a DLT-approved template — send them as a bulk SMS instead.</p>
+        } @else {
+          <div class="compose">
+            @if (o.channel === 'email') { <input class="input" [(ngModel)]="replySubject" placeholder="Subject"> }
+            <textarea class="input" rows="2" [(ngModel)]="replyText" placeholder="Type a reply…" (keydown.control.enter)="send()"></textarea>
+            <button class="btn btn-maroon btn-sm" (click)="send()" [disabled]="sending()"><app-icon name="send" /> Send</button>
+          </div>
+          @if (replyError()) { <p class="err">{{ replyError() }}</p> }
+        }
+      } @else {
+        <div class="empty-thread"><app-icon name="inbox" /><p>Choose a conversation</p></div>
+      }
+    </section>
+  </div>
+}
+
+<!-- ===== Flat log ===== -->
+@if (tab() === 'log') {
+  <div class="card">
+    <div class="filters" style="margin-bottom: 12px">
+      <input class="input grow" placeholder="Search name, number, text, voucher…" [(ngModel)]="q" (keyup.enter)="loadLog(0)">
+      <select class="input" [(ngModel)]="direction" (change)="loadLog(0)">
+        <option value="">Received + sent</option><option value="in">Received</option><option value="out">Sent</option>
+      </select>
+      <select class="input" [(ngModel)]="status" (change)="loadLog(0)">
+        <option value="">Any status</option><option value="received">Received</option><option value="sent">Sent</option>
+        <option value="delivered">Delivered</option><option value="read">Read</option><option value="failed">Failed</option><option value="manual">Manual</option>
+      </select>
+      <input class="input" type="date" [(ngModel)]="from" (change)="loadLog(0)" title="From">
+      <input class="input" type="date" [(ngModel)]="to" (change)="loadLog(0)" title="To">
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>When</th><th></th><th>Channel</th><th>Name</th><th>Number / email</th><th>Message</th><th>Voucher</th><th>Status</th></tr></thead>
+        <tbody>
+          @for (m of log(); track m.id) {
+            <tr class="row">
+              <td class="nowrap">{{ m.createdAt | date: 'dd MMM yy, h:mm a' }}</td>
+              <td><span class="dir" [class.in]="m.direction === 'in'">{{ m.direction === 'in' ? '↓ In' : '↑ Out' }}</span></td>
+              <td>{{ label(m.channel) }}</td>
+              <td>{{ m.name }}</td>
+              <td class="nowrap">{{ m.contact }}</td>
+              <td class="msgcell">@if (m.subject) {<b>{{ m.subject }}</b><br>}{{ m.body }}</td>
+              <td class="mono">{{ m.voucher }}</td>
+              <td>{{ m.status }}@if (m.error) {<br><small class="red">{{ m.error }}</small>}</td>
+            </tr>
+          } @empty { <tr><td colspan="8" class="muted">No messages.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="muted">{{ logTotal() }} messages</span>
+      <div class="actions">
+        <button class="btn-ghost" [disabled]="logPage === 0" (click)="loadLog(logPage - 1)">‹ Prev</button>
+        <button class="btn-ghost" [disabled]="(logPage + 1) * 50 >= logTotal()" (click)="loadLog(logPage + 1)">Next ›</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,10 @@
+.conn { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.c { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.c > app-icon { color: var(--m-700); }
+.c b { margin-right: auto; }
+.mono { font-family: monospace; }
+.nowrap { white-space: nowrap; }
+.chip app-icon { width: 14px; height: 14px; vertical-align: -2px; }
+.st-running { background: #dff0ff; color: #0b5a9a; } .st-done { background: #dff5e6; color: #1b6b3a; }
+.st-paused, .st-manual { background: #fff1c9; color: #8a5a00; } .st-cancelled { background: #eee; color: #555; }
+@media (max-width: 900px) { .conn { grid-template-columns: 1fr; } }

@@ -1,0 +1,43 @@
+<div class="head">
+  <div><h1>Bulk messages</h1><p>WhatsApp, email and SMS sends with entrance vouchers.</p></div>
+  <a routerLink="/admin/messages/new" class="btn btn-maroon btn-sm"><app-icon name="plus" /> New bulk message</a>
+</div>
+
+@if (ch(); as c) {
+  <div class="conn">
+    <div class="c"><app-icon name="whatsapp" /><b>WhatsApp</b>
+      <span class="chip" [class.resolved]="c.whatsappApi" [class.manual]="!c.whatsappApi">{{ c.whatsappApi ? 'Automatic' : 'Manual links' }}</span>
+      <span class="chip" [class.resolved]="c.whatsappInbound" [class.new]="!c.whatsappInbound">{{ c.whatsappInbound ? 'Receiving replies' : 'Replies not connected' }}</span></div>
+    <div class="c"><app-icon name="mail" /><b>Email</b>
+      <span class="chip" [class.resolved]="c.email" [class.new]="!c.email">{{ c.email ? 'Sending' : 'Not connected' }}</span>
+      <span class="chip" [class.resolved]="c.emailInbound" [class.new]="!c.emailInbound">{{ c.emailInbound ? 'Reading inbox' : 'Inbox not connected' }}</span></div>
+    <div class="c"><app-icon name="phone" /><b>SMS</b>
+      <span class="chip" [class.resolved]="c.sms" [class.new]="!c.sms">{{ c.sms ? 'Sending (MSG91)' : 'Not connected' }}</span>
+      <span class="chip" [class.resolved]="c.smsInbound" [class.new]="!c.smsInbound">{{ c.smsInbound ? 'Receiving' : 'Incoming not connected' }}</span></div>
+  </div>
+}
+
+<div class="card">
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>#</th><th>When</th><th>Send</th><th>By</th><th>Vouchers</th><th>Sent</th><th>Failed</th><th>Attended</th><th>Status</th></tr></thead>
+      <tbody>
+        @for (v of list(); track v.campaign.id) {
+          <tr class="row">
+            <td>{{ v.campaign.id }}</td>
+            <td class="nowrap">{{ v.campaign.createdAt | date: 'dd MMM yy, h:mm a' }}</td>
+            <td><a [routerLink]="['/admin/messages', v.campaign.id]"><b>{{ v.campaign.name }}</b></a></td>
+            <td><span class="chip manual"><app-icon [name]="icon(v.campaign.channel)" /> {{ v.campaign.channel }}{{ v.campaign.mode === 'manual' ? ' · manual' : '' }}</span></td>
+            <td class="mono">{{ v.campaign.voucherInfo || '—' }}</td>
+            <td>{{ v.stats.sent }} / {{ v.stats.total }}</td>
+            <td>{{ v.stats.failed }}</td>
+            <td>{{ v.stats.attended }}</td>
+            <td><span class="chip st-{{ v.campaign.status }}">{{ v.campaign.status }}</span></td>
+          </tr>
+        } @empty {
+          <tr><td colspan="9" class="muted" style="text-align:center; padding: 30px">No bulk messages yet.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

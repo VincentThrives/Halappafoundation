@@ -1,0 +1,49 @@
+.float {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 90;
+  display: flex; flex-direction: column; gap: 6px; view-transition-name: social-float;
+}
+.float a {
+  --c: var(--m-700);
+  position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  height: 50px; width: 50px; padding: 0 14px; border-radius: 14px 0 0 14px; overflow: hidden;
+  color: #fff; background: var(--c); text-decoration: none; font-weight: 600; font-size: .9rem; white-space: nowrap;
+  box-shadow: -6px 8px 24px -10px rgba(0,0,0,.45);
+  transition: width .45s var(--ease), background .3s;
+  animation: slide-in .8s var(--ease) both; animation-delay: calc(var(--i) * 120ms + .6s);
+}
+.float a::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--gold-grad); }
+.float a span { order: -1; opacity: 0; transition: opacity .3s; }
+.float a app-icon { width: 22px; height: 22px; }
+.float a:hover { width: 170px; }
+.float a:hover span { opacity: 1; transition-delay: .12s; }
+.mail { --c: linear-gradient(135deg, #9a1220, #5a0610) !important; }
+.mail app-icon { color: var(--g-300); }
+.fb { --c: #1877f2 !important; }
+.wa { --c: #1fb855 !important; }
+.ig { --c: linear-gradient(45deg, #f9ce34, #ee2a7b 45%, #6228d7) !important; }
+.yt { --c: #ff0000 !important; }
+@keyframes slide-in { from { transform: translateX(100%); } to { transform: none; } }
+
+.to-top {
+  position: fixed; right: 20px; bottom: 20px; z-index: 90; width: 52px; height: 52px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--m-800); color: var(--g-300); display: grid; place-items: center;
+  opacity: 0; transform: translateY(20px) scale(.8); pointer-events: none; transition: all .4s var(--ease);
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,.5);
+}
+.to-top.show { opacity: 1; transform: none; pointer-events: auto; }
+.to-top:hover { background: var(--m-600); }
+.to-top svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.to-top circle { fill: none; stroke: var(--g-500); stroke-width: 2.5; stroke-dasharray: 113; stroke-dashoffset: calc(113 - 113 * var(--p, 0)); }
+.to-top app-icon { width: 24px; height: 24px; }
+
+/* Phones: a slim column of round-edged tabs; page content keeps 50px clear on the right (styles.scss). */
+@media (max-width: 640px) {
+  .float { gap: 5px; }
+  .float a { height: 40px; width: 40px; padding: 0 9px; border-radius: 12px 0 0 12px; }
+  .float a app-icon { width: 19px; height: 19px; }
+  .float a:hover { width: 40px; }
+  .float a span { display: none; }
+  .to-top { width: 40px; height: 40px; right: 0; bottom: 18px; border-radius: 12px 0 0 12px; }
+  .to-top svg { display: none; }
+  .to-top app-icon { width: 22px; height: 22px; }
+}

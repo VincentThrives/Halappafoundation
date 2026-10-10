@@ -1,0 +1,31 @@
+.ch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.ch { display: grid; justify-items: start; gap: 4px; padding: 16px; border-radius: 14px; border: 2px solid var(--line); background: #fff; cursor: pointer; text-align: left; }
+.ch app-icon { width: 28px; height: 28px; color: var(--m-700); }
+.ch.on { border-color: var(--m-700); background: var(--cream); box-shadow: var(--shadow); }
+.ch.off small { color: var(--m-500); }
+.ch small { color: var(--muted); font-size: .78rem; }
+.src { display: grid; gap: 8px; }
+.opt { display: block; padding-left: 26px; position: relative; line-height: 1.5; }
+.opt input { position: absolute; left: 0; top: 4px; margin: 0; }
+.opt.dim { color: var(--muted); }
+.import { display: grid; gap: 8px; }
+.drop { position: relative; display: grid; justify-items: center; gap: 6px; padding: 26px; border: 2px dashed var(--line); border-radius: 14px; cursor: pointer; color: var(--muted); text-align: center; }
+.drop.over, .drop:hover { border-color: var(--g-500); background: var(--cream); }
+.drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop .up { width: 36px; height: 36px; color: var(--g-600); transform: rotate(180deg); }
+.link { background: none; border: 0; color: var(--m-600); font-weight: 600; cursor: pointer; justify-self: start; display: inline-flex; gap: 6px; align-items: center; }
+.summary { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.problems { max-height: 180px; overflow: auto; font-size: .85rem; color: var(--m-600); }
+.preview { max-height: 300px; }
+.count { display: flex; align-items: center; gap: 8px; margin: 0; }
+.note { background: #fff7e0; border-left: 4px solid var(--g-500); padding: 10px 14px; border-radius: 8px; margin: 0; font-size: .9rem; }
+.warn { color: #8a5a00; margin: 0; }
+.vch { font-family: monospace; font-size: 1.05rem; color: var(--m-700); }
+.preview-msg small { color: var(--muted); }
+.subj { font-weight: 600; margin-top: 6px; }
+.bubble { margin-top: 6px; max-width: 460px; background: #dcf8c6; border-radius: 12px 12px 12px 2px; padding: 12px 14px; white-space: pre-wrap; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+.bubble.mail { background: #fff; border: 1px solid var(--line); max-width: 620px; }
+.send-bar { display: flex; gap: 14px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+@media (min-width: 900px) { .send-bar { position: sticky; bottom: 10px; } }
+.err { color: var(--m-500); margin: 0; }
+@media (max-width: 700px) { .ch-grid { grid-template-columns: 1fr; } }

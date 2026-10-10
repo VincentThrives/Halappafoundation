@@ -1,0 +1,49 @@
+<section class="page-banner">
+  <div class="container">
+    <div class="crumbs"><a routerLink="/">{{ 'nav.home' | t }}</a> / {{ 'nav.gallery' | t }}</div>
+    <h1>{{ (category() ? 'cat.' + category() : 'nav.gallery') | t }}</h1>
+    <p class="lead">{{ 'gallery.lead' | t }}</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <nav class="tabs">
+      <a routerLink="/gallery" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">{{ 'cat.all' | t }}</a>
+      @for (c of cats; track c) { <a [routerLink]="['/gallery', c]" routerLinkActive="active">{{ 'cat.' + c | t }}</a> }
+    </nav>
+
+    @if (items() === null) {
+      <div class="masonry">@for (n of [1, 2, 3, 4, 5, 6]; track n) { <div class="skeleton tile" [style.height.px]="200 + (n % 3) * 80"></div> }</div>
+    } @else if (!items()!.length) {
+      <div class="empty"><img src="img/logo.jpg" alt="">{{ 'list.empty' | t }}</div>
+    } @else {
+      <div class="masonry">
+        @for (g of items(); track g.id; let i = $index) {
+          <button class="tile" (click)="open(i)" appReveal="up" [delay]="(i % 4) * 90">
+            <img [src]="g.image | media" [alt]="g | loc: 'caption'" loading="lazy">
+            <span class="cap">
+              <small>{{ 'cat.' + g.category | t }}</small>
+              {{ g | loc: 'caption' }}
+            </span>
+          </button>
+        }
+      </div>
+    }
+  </div>
+</section>
+
+@if (lightbox() !== null && items(); as list) {
+  <div class="lb" (click)="close()">
+    <button class="lb-btn close" (click)="close()" aria-label="Close"><app-icon name="close" /></button>
+    <button class="lb-btn prev" (click)="step(-1, $event)" aria-label="Previous"><app-icon name="arrow" /></button>
+    <figure (click)="$event.stopPropagation()">
+      @for (g of [list[lightbox()!]]; track g.id) {
+        <img [src]="g.image | media" alt="">
+        @if (g | loc: 'caption') { <figcaption>{{ g | loc: 'caption' }}</figcaption> }
+      }
+    </figure>
+    <button class="lb-btn next" (click)="step(1, $event)" aria-label="Next"><app-icon name="arrow" /></button>
+    <span class="count">{{ lightbox()! + 1 }} / {{ list.length }}</span>
+  </div>
+}

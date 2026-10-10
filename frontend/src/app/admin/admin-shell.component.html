@@ -1,0 +1,25 @@
+<div class="shell" [class.open]="open()">
+  <aside class="side">
+    <a routerLink="/admin" class="brand"><img src="img/logo.jpg" alt=""><span>Halappa<br><small>Admin</small></span></a>
+    <nav>
+      @for (l of links; track l.path) {
+        <a [routerLink]="l.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: l.path === '/admin' }">
+          <app-icon [name]="l.icon" /> {{ l.label }}
+          @if (l.path === '/admin/inbox' && unread()) { <i class="badge">{{ unread() }}</i> }
+        </a>
+      }
+    </nav>
+    <div class="foot">
+      <a routerLink="/" target="_blank"><app-icon name="external" /> View website</a>
+      <button (click)="auth.logout()"><app-icon name="logout" /> Sign out ({{ auth.user() }})</button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="burger" (click)="open.set(!open())" aria-label="Menu"><app-icon name="menu" /></button>
+      <span>Halappa Foundation · Admin</span>
+    </header>
+    <div class="content"><router-outlet /></div>
+  </div>
+  <div class="scrim" (click)="open.set(false)"></div>
+</div>

@@ -1,0 +1,173 @@
+  <!-- ================= HERO SLIDER ================= -->
+  <section class="hero">
+    <div class="rays"></div>
+    <div class="watermark">{{ lang.lang() === 'kn' ? 'ಹಾಲಪ್ಪ' : 'HALAPPA' }}</div>
+    @for (s of slides; track s.key; let i = $index) {
+      <div class="slide" [class.active]="i === current()">
+        <div class="container slide-in">
+          <div class="copy">
+            <span class="kicker">{{ 'hero.kicker' | t }} · {{ 'brand.name' | t }}</span>
+            <h1>
+              @for (line of (s.key + '.title' | t).split('
+'); track $index) {
+                <span class="line"><span [style.transition-delay.ms]="200 + $index * 120">{{ line }}</span></span>
+              }
+            </h1>
+            <p>{{ s.key + '.text' | t }}</p>
+            <div class="ctas">
+              <a class="btn" routerLink="/about">{{ 'hero.cta.know' | t }} <app-icon name="arrow" /></a>
+              <a class="btn btn-outline" routerLink="/contact">{{ 'hero.cta.contact' | t }}</a>
+            </div>
+          </div>
+          <div class="visual" [class.round]="s.round">
+            <div class="frame"><img [src]="s.img" [alt]="'brand.person' | t"></div>
+            <div class="orbit"></div>
+            <div class="badge"><img src="img/logo.jpg" alt=""></div>
+          </div>
+        </div>
+      </div>
+    }
+    <div class="dots">
+      @for (s of slides; track s.key; let i = $index) {
+        <button [class.on]="i === current()" (click)="go(i)" [attr.aria-label]="'Slide ' + (i + 1)"><i></i></button>
+      }
+    </div>
+    <a class="scroll-cue" href="#intro"><span>{{ 'hero.scroll' | t }}</span><i></i></a>
+  </section>
+
+  <!-- ================= MARQUEE ================= -->
+  <div class="marquee" aria-hidden="true">
+    <div class="track">
+      @for (r of [0, 1]; track r) {
+        @for (n of [1, 2, 3, 4, 5, 6]; track n) {
+          <span>{{ 'init.' + n + '.t' | t }}</span><b>✦</b>
+        }
+      }
+    </div>
+  </div>
+
+  <!-- ================= STATS ================= -->
+  <section class="stats container" id="intro">
+    <div class="stat" appReveal="up" [delay]="0"><strong><span [appCountUp]="12" suffix="+"></span></strong><small>{{ 'stat.years' | t }}</small></div>
+    <div class="stat" appReveal="up" [delay]="120"><strong><span [appCountUp]="42" suffix="+"></span></strong><small>{{ 'stat.members' | t }}</small></div>
+    <div class="stat" appReveal="up" [delay]="240"><strong><span [appCountUp]="4"></span></strong><small>{{ 'stat.states' | t }}</small></div>
+    <div class="stat" appReveal="up" [delay]="360"><strong><span [appCountUp]="6"></span></strong><small>{{ 'stat.initiatives' | t }}</small></div>
+  </section>
+
+  <!-- ================= ABOUT TEASER ================= -->
+  <section class="section about">
+    <div class="container about-grid">
+      <div class="about-img" appReveal="left">
+        <div class="img-wrap"><img src="img/portrait.jpg" alt="" appParallax [speed]="0.08"></div>
+        <div class="float-card" appReveal="zoom" [delay]="400">
+          <img src="img/logo.jpg" alt="">
+          <div><b>{{ 'brand.person' | t }}</b><small>{{ 'pos.1.r' | t }}, KPCC</small></div>
+        </div>
+      </div>
+      <div appReveal="right">
+        <span class="eyebrow">{{ 'home.about.eyebrow' | t }}</span>
+        <h2 class="section-title">{{ 'home.about.title' | t }}</h2>
+        <p>{{ 'home.about.p1' | t }}</p>
+        <p>{{ 'home.about.p2' | t }}</p>
+        <a class="btn btn-maroon" routerLink="/about">{{ 'home.about.cta' | t }} <app-icon name="arrow" /></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= INITIATIVES ================= -->
+  <section class="section init">
+    <div class="container">
+      <div class="section-head" appReveal="up">
+        <span class="eyebrow">{{ 'init.eyebrow' | t }}</span>
+        <h2 class="section-title">{{ 'init.title' | t }}</h2>
+        <p>{{ 'init.sub' | t }}</p>
+      </div>
+      <div class="init-grid swipe">
+        @for (it of initiatives; track it.n; let i = $index) {
+          <article class="init-card" appReveal="up" [delay]="(i % 3) * 120">
+            <span class="num">0{{ it.n }}</span>
+            <div class="ic"><app-icon [name]="it.icon" /></div>
+            <h3>{{ 'init.' + it.n + '.t' | t }}</h3>
+            <p>{{ 'init.' + it.n + '.d' | t }}</p>
+          </article>
+        }
+      </div>
+      <p class="swipe-hint">{{ 'swipe' | t }}</p>
+    </div>
+  </section>
+
+  <!-- ================= QUOTE BAND ================= -->
+  <section class="quote-band">
+    <div class="qb-bg" appParallax [speed]="0.25"></div>
+    <div class="container qb-in">
+      <figure class="qb-photo" appReveal="left"><img src="img/office.jpg" alt="Muralidhar Halappa" loading="lazy"></figure>
+      <div class="qb-text" appReveal="blur">
+        <app-icon name="quote" class="qmark" />
+        <blockquote>{{ 'home.quote' | t }}</blockquote>
+        <cite>— {{ 'brand.person' | t }}</cite>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LATEST ================= -->
+  <section class="section">
+    <div class="container">
+      <div class="section-head" appReveal="up">
+        <span class="eyebrow">{{ 'home.latest.eyebrow' | t }}</span>
+        <h2 class="section-title">{{ 'home.latest.title' | t }}</h2>
+      </div>
+      @if (posts() === null) {
+        <div class="card-grid swipe">@for (n of [1, 2, 3]; track n) { <div class="skeleton" style="height: 380px"></div> }</div>
+      } @else {
+        <div class="card-grid swipe">
+          @for (p of posts(); track p.id; let i = $index) {
+            <a class="post-card" [routerLink]="['/post', p.id]" appReveal="up" [delay]="i * 120">
+              <div class="thumb">
+                @if (p.image) { <img [src]="p.image | media" alt="" loading="lazy"> }
+                @else { <div class="ph"><img src="img/logo.jpg" alt=""></div> }
+              </div>
+              <div class="body">
+                <span class="meta">{{ 'cat.' + p.category | t }} · {{ p.publishedOn | date: 'mediumDate' }}</span>
+                <h3>{{ p | loc: 'title' }}</h3>
+                <p>{{ p | loc: 'body' }}</p>
+                <span class="more">{{ 'list.readMore' | t }}</span>
+              </div>
+            </a>
+          }
+        </div>
+        <p class="swipe-hint">{{ 'swipe' | t }}</p>
+      }
+    </div>
+  </section>
+
+  <!-- ================= GALLERY STRIP ================= -->
+  @if (photos().length) {
+    <section class="section strip">
+      <div class="container strip-head" appReveal="up">
+        <h2 class="section-title">{{ 'home.gallery.title' | t }}</h2>
+        <a class="btn btn-sm btn-maroon" routerLink="/gallery">{{ 'home.gallery.cta' | t }} <app-icon name="arrow" /></a>
+      </div>
+      <div class="container strip-grid">
+        @for (g of photos(); track g.id; let i = $index) {
+          <a class="ph-tile" routerLink="/gallery" appReveal="zoom" [delay]="i * 100">
+            <img [src]="g.image | media" alt="" loading="lazy">
+            <span>{{ g | loc: 'caption' }}</span>
+          </a>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- ================= CTA ================= -->
+  <section class="cta">
+    <div class="container cta-in" appReveal="zoom">
+      <div>
+        <h2>{{ 'home.cta.title' | t }}</h2>
+        <p>{{ 'home.cta.text' | t }}</p>
+      </div>
+      <div class="cta-btns">
+        <a class="btn" routerLink="/contact"><app-icon name="mail" /> {{ 'send.email' | t }}</a>
+        <a class="btn btn-wa" routerLink="/contact"><app-icon name="whatsapp" /> {{ 'send.whatsapp' | t }}</a>
+      </div>
+    </div>
+  </section>
