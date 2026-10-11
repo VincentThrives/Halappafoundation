@@ -2,5 +2,5 @@
 export const environment = {
   production: true,
   /** Spring Boot backend; every /api and /uploads request is sent here. */
-  apiUrl: 'https://amogha-gold-billingsoftware.onrender.com',
+  apiUrl: 'https://halappafoundation.onrender.com',
 };
