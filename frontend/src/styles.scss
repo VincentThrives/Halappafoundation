@@ -31,7 +31,10 @@ html.lang-kn {
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+/* Content waiting to slide in sits off-screen to the right; on phones that made the page wider than the screen on
+   first load (blank strip on the right). `clip` cuts it off without making html/body a scroll box, so window
+   scrolling (header, reveal-on-scroll) keeps working. `hidden` stays as the fallback for old browsers. */
+html { scroll-behavior: smooth; overflow-x: clip; }
 body {
   margin: 0;
   font-family: var(--font-body);
@@ -40,7 +43,9 @@ body {
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  overflow-x: clip;
 }
+main { overflow-x: clip; }
 h1, h2, h3, h4 { font-family: var(--font-head); line-height: 1.2; margin: 0 0 .5em; color: var(--m-800); }
 html.lang-kn h1, html.lang-kn h2, html.lang-kn h3 { line-height: 1.4; }
 /* Letter-spacing breaks apart Kannada conjuncts, so tracking is off everywhere in Kannada mode. */

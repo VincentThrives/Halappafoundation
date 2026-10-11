@@ -32,8 +32,9 @@ does the same for uploaded photos (`<img [src]="p.image | media">`). The backend
 
 Open http://localhost:4210. Admin panel: http://localhost:4210/admin (or **Sign in** in the site's top bar).
 The first admin account is created on first start from `SEED_ADMIN_USERNAME` (default `admin`) and `SEED_ADMIN_PASSWORD`.
-If no password is set, a random one-time password is printed once in the server log. There is **no password in the code**.
-Change the password under **Admin → Settings** after the first login.
+This happens **once**, only when the database has no admin. After that the password is **fixed**: restarts and deploys never
+change or regenerate it. The only way to change it is **Admin → Settings → Change password** (needs the current password).
+No password is ever generated and none is in the code: without `SEED_ADMIN_PASSWORD` no admin is created (the server log says so).
 
 ## What the admin can do
 
@@ -66,7 +67,7 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 174 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 177 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
@@ -94,7 +95,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `MONGODB_URI` | MongoDB Atlas connection string, e.g. `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority` |
 | `MONGODB_DATABASE` | Database name (default `halappa`). Ids are numeric and come from the `counters` collection |
 | `JWT_SECRET` | 64+ random characters (required in production; without it sign-ins end on every restart) |
-| `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | First admin only (set a strong password before the first start) |
+| `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | Creates the first admin once, on a database with no admin. Required before the first start; later changes to it have no effect (the stored password stays fixed). Keep the database (`MONGODB_URI`) the same across deploys |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |
 | `WEB_STATIC_DIR` | Path to `frontend/dist/frontend/browser` to serve the site from the same server |
 | `CORS_ORIGINS` | The website's address(es), comma-separated, e.g. `https://halappafoundation.in` (the site calls the API at `apiUrl` from `environment.prod.ts`) |
