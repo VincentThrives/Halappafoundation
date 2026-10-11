@@ -1,9 +1,9 @@
 package com.vincent.halappa.domain;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.Optional;
 
-public interface AdminUserRepository extends JpaRepository<AdminUser, Long> {
+public interface AdminUserRepository extends MongoRepository<AdminUser, Long> {
     Optional<AdminUser> findByUsername(String username);
 }

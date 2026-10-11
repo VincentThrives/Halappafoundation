@@ -1,28 +1,26 @@
 package com.vincent.halappa.domain;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "gallery_items")
+@Document("gallery_items")
 @Getter @Setter
-public class GalleryItem {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class GalleryItem implements Sequenced {
+    @Id
     private Long id;
 
     /** timeline | lighter-side | election-rally | government-events | spiritual-side */
-    @Column(nullable = false, length = 30)
+    @Indexed
     private String category;
 
-    @Column(length = 300)
     private String captionEn;
-    @Column(length = 300)
     private String captionKn;
 
-    @Column(nullable = false)
     private String image;
 
     private LocalDateTime createdAt = LocalDateTime.now();

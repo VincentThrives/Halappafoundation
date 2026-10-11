@@ -1,22 +1,22 @@
 package com.vincent.halappa.domain;
 
-import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "admin_users")
+@Document("admin_users")
 @Getter @Setter
-public class AdminUser {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class AdminUser implements Sequenced {
+    @Id
     private Long id;
 
-    @Column(unique = true, nullable = false, length = 80)
+    @Indexed(unique = true)
     private String username;
 
-    @Column(nullable = false)
     private String passwordHash;
 
     private LocalDateTime createdAt = LocalDateTime.now();

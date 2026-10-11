@@ -18,9 +18,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Full application with an in-memory H2 database; all API test classes share one context. */
+/** Full application with an embedded MongoDB; all API test classes share one context. */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:halappa-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.data.mongodb.database=halappa-test",
         "app.uploads-dir=target/test-uploads",
         "app.seed.admin-username=admin",
         "app.seed.admin-password=Test@12345",

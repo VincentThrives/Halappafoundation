@@ -5,16 +5,13 @@ server:
 spring:
   application:
     name: halappa-foundation
-  datasource:
-    # Local default: H2 file DB under ./data. Production: set DATABASE_URL (jdbc:postgresql://...),
-    # DATABASE_USERNAME and DATABASE_PASSWORD.
-    url: ${DATABASE_URL:jdbc:h2:file:./data/halappa;MODE=PostgreSQL;AUTO_SERVER=TRUE}
-    username: ${DATABASE_USERNAME:sa}
-    password: ${DATABASE_PASSWORD:}
-  jpa:
-    hibernate:
-      ddl-auto: update
-    open-in-view: false
+  data:
+    mongodb:
+      # Local default: MongoDB on localhost. Production: set MONGODB_URI to the Atlas connection string
+      # (mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority).
+      uri: ${MONGODB_URI:mongodb://localhost:27017}
+      database: ${MONGODB_DATABASE:halappa}
+      auto-index-creation: true
   mail:
     host: ${MAIL_HOST:}
     port: ${MAIL_PORT:465}

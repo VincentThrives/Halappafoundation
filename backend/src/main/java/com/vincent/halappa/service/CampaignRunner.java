@@ -8,8 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -47,15 +45,6 @@ public class CampaignRunner {
         this.mail = mail;
         this.sms = sms;
         this.executor = applicationTaskExecutor;
-    }
-
-    /** Starts once the surrounding transaction has committed (so the queued rows are visible). */
-    public void startAfterCommit(Long id) {
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override public void afterCommit() { start(id); }
-            });
-        } else start(id);
     }
 
     public void start(Long id) {

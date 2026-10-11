@@ -4,7 +4,6 @@ import com.vincent.halappa.domain.Setting;
 import com.vincent.halappa.domain.SettingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,7 +30,6 @@ public class SettingsService {
 
     private final SettingRepository repo;
 
-    @Transactional
     public void ensureDefaults() {
         DEFAULTS.forEach((k, v) -> { if (!repo.existsById(k)) repo.save(new Setting(k, v)); });
     }
@@ -44,7 +42,6 @@ public class SettingsService {
 
     public String get(String key) { return all().get(key); }
 
-    @Transactional
     public Map<String, String> update(Map<String, String> values) {
         values.forEach((k, v) -> {
             if (DEFAULTS.containsKey(k)) repo.save(new Setting(k, v == null ? "" : v.trim()));

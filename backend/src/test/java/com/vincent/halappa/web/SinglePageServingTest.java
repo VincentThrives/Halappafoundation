@@ -19,7 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Production mode: one server serves the built Angular site (WEB_STATIC_DIR) and the API. */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:halappa-static;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.data.mongodb.database=halappa-static",
         "app.uploads-dir=target/test-uploads",
 })
 @AutoConfigureMockMvc

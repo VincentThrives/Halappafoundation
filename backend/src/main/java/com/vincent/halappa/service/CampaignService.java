@@ -1,6 +1,7 @@
 package com.vincent.halappa.service;
 
 import com.vincent.halappa.common.ApiException;
+import com.vincent.halappa.common.MongoQueries;
 import com.vincent.halappa.common.PageDto;
 import com.vincent.halappa.domain.*;
 import lombok.RequiredArgsConstructor;
@@ -9,9 +10,9 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,6 +32,8 @@ public class CampaignService {
     private final MailService mail;
     private final SmsService sms;
     private final CampaignRunner runner;
+    private final SequenceService sequences;
+    private final MongoTemplate mongo;
 
     @Value("${app.campaign.max-recipients:5000}")
     private int maxRecipients = 5000;
@@ -67,7 +70,6 @@ public class CampaignService {
 
     // ---------- Create ----------
 
-    @Transactional
     public View create(Request r, String admin) {
         String channel = r.channel() == null ? "" : r.channel().toLowerCase();
         if (!CHANNELS.contains(channel)) throw ApiException.badRequest("Choose WhatsApp, Email or SMS");
@@ -112,11 +114,14 @@ public class CampaignService {
         c.setCreatedBy(admin);
         c = campaigns.save(c);
 
+        // Ids for all recipients in one round trip, then a single bulk insert (up to 5000 documents).
+        long firstId = sequences.reserve("messages", people.size());
         List<Message> batch = new ArrayList<>(people.size());
         for (int i = 0; i < people.size(); i++) {
             Person p = people.get(i);
             String voucher = codes == null ? null : codes.get(i);
             Message m = new Message();
+            m.setId(firstId + i);
             m.setCampaignId(c.getId());
             m.setChannel(channel);
             m.setDirection("out");
@@ -128,9 +133,9 @@ public class CampaignService {
             m.setStatus(manual ? "manual" : "queued");
             batch.add(m);
         }
-        messages.saveAll(batch);
+        mongo.insertAll(batch);
 
-        if (!manual) runner.startAfterCommit(c.getId());
+        if (!manual) runner.start(c.getId());
         return view(c);
     }
 
@@ -215,8 +220,7 @@ public class CampaignService {
     public View get(Long id) { return view(find(id)); }
 
     public View view(Campaign c) {
-        Map<String, Long> by = new HashMap<>();
-        for (Object[] row : messages.statusCounts(c.getId())) by.put((String) row[0], (Long) row[1]);
+        Map<String, Long> by = messages.statusCounts(c.getId());
         long delivered = by.getOrDefault("delivered", 0L), read = by.getOrDefault("read", 0L);
         // "sent" counts everything that left, including later delivered/read receipts.
         long sent = by.getOrDefault("sent", 0L) + delivered + read;
@@ -227,21 +231,15 @@ public class CampaignService {
 
     public PageDto<Message> recipients(Long id, String status, String q, int page, int size) {
         find(id);
-        Specification<Message> spec = (root, query, cb) -> {
-            var ps = new ArrayList<jakarta.persistence.criteria.Predicate>();
-            ps.add(cb.equal(root.get("campaignId"), id));
-            if (!isBlank(status)) {
-                if ("sent".equals(status)) ps.add(root.get("status").in("sent", "delivered", "read"));
-                else ps.add(cb.equal(root.get("status"), status));
-            }
-            if (!isBlank(q)) {
-                String like = "%" + q.trim().toLowerCase() + "%";
-                ps.add(cb.or(cb.like(cb.lower(root.get("contact")), like), cb.like(cb.lower(root.get("name")), like),
-                        cb.like(cb.lower(root.get("voucher")), like)));
-            }
-            return cb.and(ps.toArray(jakarta.persistence.criteria.Predicate[]::new));
-        };
-        return PageDto.of(messages.findAll(spec, PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500), Sort.by("id"))));
+        List<Criteria> cs = new ArrayList<>();
+        cs.add(Criteria.where("campaignId").is(id));
+        if (!isBlank(status)) {
+            if ("sent".equals(status)) cs.add(Criteria.where("status").in("sent", "delivered", "read"));
+            else cs.add(Criteria.where("status").is(status));
+        }
+        if (!isBlank(q)) cs.add(MongoQueries.containsAny(q, "contact", "name", "voucher"));
+        return PageDto.of(MongoQueries.page(mongo, MongoQueries.all(cs),
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 500), Sort.by("id")), Message.class));
     }
 
     public List<Message> allRecipients(Long id) { find(id); return messages.findByCampaignIdOrderByIdAsc(id); }
@@ -264,7 +262,6 @@ public class CampaignService {
         return view(c);
     }
 
-    @Transactional
     public View cancel(Long id) {
         Campaign c = find(id);
         if (Set.of("done", "cancelled").contains(c.getStatus())) throw ApiException.badRequest("This send has already finished");
@@ -274,7 +271,6 @@ public class CampaignService {
         return view(campaigns.save(c));
     }
 
-    @Transactional
     public View retryFailed(Long id) {
         Campaign c = find(id);
         if ("manual".equals(c.getMode())) throw ApiException.badRequest("Manual sends are retried by opening the links again");
@@ -284,7 +280,7 @@ public class CampaignService {
         c.setStatus("running");
         c.setFinishedAt(null);
         campaigns.save(c);
-        runner.startAfterCommit(id);
+        runner.start(id);
         return view(c);
     }
 

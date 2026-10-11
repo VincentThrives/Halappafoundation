@@ -1,6 +1,7 @@
 package com.vincent.halappa.service;
 
 import com.vincent.halappa.common.ApiException;
+import com.vincent.halappa.common.MongoQueries;
 import com.vincent.halappa.domain.Enquiry;
 import com.vincent.halappa.domain.EnquiryRepository;
 import jakarta.validation.constraints.*;
@@ -8,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
@@ -29,6 +31,7 @@ public class EnquiryService {
     private final SettingsService settings;
     private final InboxService inbox;
     private final com.vincent.halappa.domain.MessageRepository messages;
+    private final MongoTemplate mongo;
 
     public record EnquiryRequest(
             @NotBlank @Size(max = 120) String name,
@@ -85,11 +88,12 @@ public class EnquiryService {
     }
 
     public Page<Enquiry> search(EnquiryFilter f, int page, int size) {
-        return repo.findAll(f.toSpec(), PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), Sort.by(Sort.Direction.DESC, "id")));
+        return MongoQueries.page(mongo, f.toCriteria(),
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), Sort.by(Sort.Direction.DESC, "id")), Enquiry.class);
     }
 
     public List<Enquiry> all(EnquiryFilter f) {
-        return repo.findAll(f.toSpec(), Sort.by(Sort.Direction.DESC, "id"));
+        return MongoQueries.list(mongo, f.toCriteria(), Sort.by(Sort.Direction.DESC, "id"), Enquiry.class);
     }
 
     public Enquiry update(Long id, String status, String notes) {
@@ -103,7 +107,6 @@ public class EnquiryService {
     }
 
     /** Deletes the enquiries and their copies in the admin Inbox. */
-    @org.springframework.transaction.annotation.Transactional
     public void delete(List<Long> ids) {
         if (ids == null || ids.isEmpty()) throw ApiException.badRequest("Select at least one enquiry");
         repo.deleteAllById(ids);

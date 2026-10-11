@@ -9,7 +9,8 @@ Bilingual (English / ಕನ್ನಡ) website for the Halappa Foundation and Mur
 ## Run locally
 
 ```bash
-# API on :8090 (H2 file DB in backend/data, no setup needed)
+# API on :8090. Needs MongoDB: by default mongodb://localhost:27017, database "halappa"
+# (e.g. `docker run -d -p 27017:27017 mongo:7`), or point it at Atlas with MONGODB_URI.
 cd backend && ./mvnw spring-boot:run
 
 # Web on :4210 (calls the API at the address in src/environments/environment.ts)
@@ -65,7 +66,7 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 174 tests (unit + API integration on in-memory H2, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 174 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
@@ -90,7 +91,8 @@ A readable list of every test case: **TEST-REPORT.html**.
 
 | Variable | Notes |
 |---|---|
-| `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | PostgreSQL, e.g. `jdbc:postgresql://host:5432/halappa` |
+| `MONGODB_URI` | MongoDB Atlas connection string, e.g. `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority` |
+| `MONGODB_DATABASE` | Database name (default `halappa`). Ids are numeric and come from the `counters` collection |
 | `JWT_SECRET` | 64+ random characters (required in production; without it sign-ins end on every restart) |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | First admin only (set a strong password before the first start) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |

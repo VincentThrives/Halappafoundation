@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -101,7 +100,6 @@ public class AdminContentController {
 
     /** Accepts several photos at once; each becomes its own gallery item with the same caption. */
     @PostMapping(value = "/gallery", consumes = "multipart/form-data")
-    @Transactional
     public List<GalleryItem> addPhotos(@RequestParam String category,
                                        @RequestParam(required = false) String captionEn,
                                        @RequestParam(required = false) String captionKn,

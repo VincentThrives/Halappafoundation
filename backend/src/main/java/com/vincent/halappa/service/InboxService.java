@@ -1,15 +1,16 @@
 package com.vincent.halappa.service;
 
 import com.vincent.halappa.common.ApiException;
+import com.vincent.halappa.common.MongoQueries;
 import com.vincent.halappa.common.PageDto;
 import com.vincent.halappa.domain.Message;
 import com.vincent.halappa.domain.MessageRepository;
-import jakarta.persistence.criteria.Predicate;
-import lombok.RequiredArgsConstructor;
+import com.vincent.halappa.domain.MessageRepositoryCustom.ThreadRow;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -27,11 +28,13 @@ public class InboxService {
     private final MessageRepository messages;
     private final WhatsAppService whatsapp;
     private final MailService mail;
+    private final MongoTemplate mongo;
 
-    public InboxService(MessageRepository messages, WhatsAppService whatsapp, @Lazy MailService mail) {
+    public InboxService(MessageRepository messages, WhatsAppService whatsapp, @Lazy MailService mail, MongoTemplate mongo) {
         this.messages = messages;
         this.whatsapp = whatsapp;
         this.mail = mail;
+        this.mongo = mongo;
     }
 
     // ---------- Recording ----------
@@ -86,17 +89,16 @@ public class InboxService {
                          LocalDateTime lastAt, long unread, long received) {}
 
     public PageDto<Thread> threads(String channel, String q, boolean includeSentOnly, int page, int size) {
-        String like = q == null || q.isBlank() ? null : "%" + q.trim().toLowerCase() + "%";
-        var p = messages.threads(blank(channel), like, includeSentOnly, PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
-        List<Long> lastIds = p.getContent().stream().map(r -> ((Number) r[2]).longValue()).toList();
+        var p = messages.threads(blank(channel), blank(q), includeSentOnly, PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100)));
+        List<Long> lastIds = p.getContent().stream().map(ThreadRow::lastId).toList();
         Map<Long, Message> last = messages.findAllById(lastIds).stream().collect(Collectors.toMap(Message::getId, Function.identity()));
         List<Thread> items = p.getContent().stream().map(r -> {
-            Message m = last.get(((Number) r[2]).longValue());
+            Message m = last.get(r.lastId());
             String name = m.getName();
             if (name == null) name = messages.findByChannelAndContactOrderByIdAsc(m.getChannel(), m.getContact()).stream()
                     .map(Message::getName).filter(Objects::nonNull).reduce((a, b) -> b).orElse(null);
-            return new Thread((String) r[0], (String) r[1], name, snippet(m.getBody()), m.getDirection(), m.getCreatedAt(),
-                    ((Number) r[3]).longValue(), ((Number) r[4]).longValue());
+            return new Thread(r.channel(), r.contact(), name, snippet(m.getBody()), m.getDirection(), m.getCreatedAt(),
+                    r.unread(), r.received());
         }).toList();
         return new PageDto<>(items, p.getTotalElements(), p.getNumber(), p.getSize());
     }
@@ -111,22 +113,15 @@ public class InboxService {
 
     /** Flat message log with filters. */
     public PageDto<Message> log(String channel, String direction, String status, String q, LocalDate from, LocalDate to, int page, int size) {
-        Specification<Message> spec = (root, query, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            if (!isBlank(channel)) ps.add(cb.equal(root.get("channel"), channel));
-            if (!isBlank(direction)) ps.add(cb.equal(root.get("direction"), direction));
-            if (!isBlank(status)) ps.add(cb.equal(root.get("status"), status));
-            if (from != null) ps.add(cb.greaterThanOrEqualTo(root.get("createdAt"), from.atStartOfDay()));
-            if (to != null) ps.add(cb.lessThan(root.get("createdAt"), to.plusDays(1).atStartOfDay()));
-            if (!isBlank(q)) {
-                String like = "%" + q.trim().toLowerCase() + "%";
-                ps.add(cb.or(cb.like(cb.lower(root.get("contact")), like), cb.like(cb.lower(root.get("name")), like),
-                        cb.like(cb.lower(root.get("body")), like), cb.like(cb.lower(root.get("voucher")), like),
-                        cb.like(cb.lower(root.get("subject")), like)));
-            }
-            return cb.and(ps.toArray(Predicate[]::new));
-        };
-        return PageDto.of(messages.findAll(spec, PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), Sort.by(Sort.Direction.DESC, "id"))));
+        List<Criteria> cs = new ArrayList<>();
+        if (!isBlank(channel)) cs.add(Criteria.where("channel").is(channel));
+        if (!isBlank(direction)) cs.add(Criteria.where("direction").is(direction));
+        if (!isBlank(status)) cs.add(Criteria.where("status").is(status));
+        if (from != null) cs.add(Criteria.where("createdAt").gte(from.atStartOfDay()));
+        if (to != null) cs.add(Criteria.where("createdAt").lt(to.plusDays(1).atStartOfDay()));
+        if (!isBlank(q)) cs.add(MongoQueries.containsAny(q, "contact", "name", "body", "voucher", "subject"));
+        return PageDto.of(MongoQueries.page(mongo, MongoQueries.all(cs),
+                PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200), Sort.by(Sort.Direction.DESC, "id")), Message.class));
     }
 
     // ---------- Replying ----------

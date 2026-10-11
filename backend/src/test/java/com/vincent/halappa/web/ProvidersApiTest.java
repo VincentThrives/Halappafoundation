@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * sender: 5000-message sends, delivery receipts, replies, failures and retries, incoming messages.
  */
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:halappa-providers;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.data.mongodb.database=halappa-providers",
         "app.uploads-dir=target/test-uploads",
         "app.seed.admin-password=Test@12345",
         "whatsapp.token=test-token",
