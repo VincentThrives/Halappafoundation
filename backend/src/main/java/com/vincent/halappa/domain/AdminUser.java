@@ -20,4 +20,10 @@ public class AdminUser implements Sequenced {
     private String passwordHash;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    /** "Forgot password": hash of the emailed 6-digit code, when it stops working, wrong tries so far. */
+    private String resetCodeHash;
+    private LocalDateTime resetExpiresAt;
+    private LocalDateTime resetRequestedAt;
+    private int resetAttempts;
 }

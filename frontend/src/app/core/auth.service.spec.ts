@@ -20,6 +20,7 @@ describe('AuthService, interceptor and guard', () => {
     client = TestBed.inject(HttpClient);
     router = TestBed.inject(Router);
     spyOn(router, 'navigateByUrl').and.resolveTo(true);
+    spyOn(router, 'navigate').and.resolveTo(true);
   });
   afterEach(() => { http.verify(); sessionStorage.clear(); });
 
@@ -48,7 +49,30 @@ describe('AuthService, interceptor and guard', () => {
     client.get('/api/admin/dashboard').subscribe({ error: () => {} });
     http.expectOne('/api/admin/dashboard').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(auth.loggedIn).toBeFalse();
-    expect(router.navigateByUrl).toHaveBeenCalledWith('/admin/login');
+    expect(router.navigate).toHaveBeenCalledWith(['/admin/login'], {}); // expired: no "you signed out" note
+  });
+
+  it('Sign out clears the session and tells the login page', () => {
+    sessionStorage.setItem('hf-admin-token', 'T1');
+    sessionStorage.setItem('hf-admin-token-user', 'halappaadmin');
+    auth.logout(true);
+    expect(auth.loggedIn).toBeFalse();
+    expect(auth.user()).toBeNull();
+    expect(sessionStorage.getItem('hf-admin-token-user')).toBeNull();
+    expect(router.navigate).toHaveBeenCalledWith(['/admin/login'], { queryParams: { signedOut: 1 } });
+  });
+
+  it('forgot and reset call the public password-reset endpoints without a token', () => {
+    sessionStorage.setItem('hf-admin-token', 'T1');
+    auth.forgot('admin').subscribe();
+    auth.resetPassword('admin', '123456', 'New@Pass123').subscribe();
+    const f = http.expectOne('/api/auth/forgot');
+    expect(f.request.body).toEqual({ username: 'admin' });
+    expect(f.request.headers.has('Authorization')).toBeFalse();
+    const r = http.expectOne('/api/auth/reset');
+    expect(r.request.body).toEqual({ username: 'admin', code: '123456', password: 'New@Pass123' });
+    f.flush({ message: 'sent' });
+    r.flush({ message: 'ok' });
   });
 
   it('a 401 from a public call does not sign out', () => {

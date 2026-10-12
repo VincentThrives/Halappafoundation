@@ -36,6 +36,11 @@ This happens **once**, only when the database has no admin. After that the passw
 change or regenerate it. The only way to change it is **Admin → Settings → Change password** (needs the current password).
 No password is ever generated and none is in the code: without `SEED_ADMIN_PASSWORD` no admin is created (the server log says so).
 
+**Forgot password?** on the admin login emails a 6-digit code to `ADMIN_RECOVERY_EMAIL` (default: the enquiries address,
+info@halappafoundation.in); enter it with a new password. The code works for 10 minutes and once, 5 wrong tries cancel it,
+requests are rate-limited, and the answer never reveals whether a username exists. Needs the SMTP settings (`MAIL_*`).
+**Sign out** is in the top bar of every admin page (and at the bottom of the menu).
+
 ## What the admin can do
 
 | Screen | Purpose |
@@ -76,11 +81,11 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 200 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 209 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
-# Frontend: 197 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
+# Frontend: 205 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
 cd frontend && npm run test:ci
 ```
 
@@ -105,6 +110,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `MONGODB_DATABASE` | Database name (default `halappa`). Ids are numeric and come from the `counters` collection |
 | `JWT_SECRET` | 64+ random characters (required in production; without it sign-ins end on every restart) |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | Creates the first admin once, on a database with no admin. Required before the first start; later changes to it have no effect (the stored password stays fixed). Keep the database (`MONGODB_URI`) the same across deploys |
+| `ADMIN_RECOVERY_EMAIL` | Where "Forgot password?" codes are emailed (default `MAIL_NOTIFY_TO`, then info@halappafoundation.in) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |
 | `WEB_STATIC_DIR` | Path to `frontend/dist/frontend/browser` to serve the site from the same server |
 | `CORS_ORIGINS` | The website's address(es), comma-separated, e.g. `https://halappafoundation.in` (the site calls the API at `apiUrl` from `environment.prod.ts`) |

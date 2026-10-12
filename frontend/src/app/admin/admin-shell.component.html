@@ -11,13 +11,15 @@
     </nav>
     <div class="foot">
       <a routerLink="/" target="_blank"><app-icon name="external" /> View website</a>
-      <button (click)="auth.logout()"><app-icon name="logout" /> Sign out ({{ auth.user() }})</button>
+      <button (click)="auth.logout(true)"><app-icon name="logout" /> Sign out ({{ auth.user() }})</button>
     </div>
   </aside>
   <div class="main">
     <header class="topbar">
       <button class="burger" (click)="open.set(!open())" aria-label="Menu"><app-icon name="menu" /></button>
-      <span>Halappa Foundation · Admin</span>
+      <span class="title">Halappa Foundation · Admin</span>
+      <span class="who" title="Signed in"><span class="dot"></span>{{ auth.user() }}</span>
+      <button class="signout" (click)="auth.logout(true)" aria-label="Sign out"><app-icon name="logout" /><span>Sign out</span></button>
     </header>
     <div class="content"><router-outlet /></div>
   </div>

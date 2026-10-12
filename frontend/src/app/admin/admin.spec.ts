@@ -210,6 +210,104 @@ describe('Admin: sign in page', () => {
   });
 });
 
+describe('Admin: forgot password and sign-out note', () => {
+  function make(opts: { query?: Record<string, string>; forgot?: any; reset?: any } = {}) {
+    sessionStorage.clear();
+    const auth = {
+      loggedIn: false,
+      login: jasmine.createSpy('login').and.returnValue(of({})),
+      forgot: jasmine.createSpy('forgot').and.returnValue(opts.forgot ?? of({ message: 'If that username exists, a 6-digit code has been emailed to in**@halappafoundation.in. It works for 10 minutes.' })),
+      resetPassword: jasmine.createSpy('resetPassword').and.returnValue(opts.reset ?? of({ message: 'Password changed. Sign in with your new password.' })),
+    };
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: auth },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(opts.query ?? {}) } } }] });
+    spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const f = TestBed.createComponent(LoginComponent);
+    f.detectChanges();
+    return { f, c: f.componentInstance, auth, el: f.nativeElement as HTMLElement };
+  }
+  const click = (el: HTMLElement, text: string) =>
+    ([...el.querySelectorAll('button')].find(b => b.textContent!.includes(text)) as HTMLButtonElement).click();
+
+  it('after Sign out the login page says so in green', () => {
+    const { el } = make({ query: { signedOut: '1' } });
+    expect(el.querySelector('.ok')!.textContent).toContain("You've signed out.");
+  });
+
+  it('no note on a normal visit', () => {
+    const { el } = make();
+    expect(el.querySelector('.ok')).toBeNull();
+  });
+
+  it('full flow: Forgot password? → email a code → code + new password → back to sign in', () => {
+    const { f, c, auth, el } = make();
+    click(el, 'Forgot password?');
+    f.detectChanges();
+    expect(el.querySelector('h1')!.textContent).toBe('Reset password');
+
+    c.sendCode(); // no username yet
+    expect(c.error()).toBe('Enter your username');
+    expect(auth.forgot).not.toHaveBeenCalled();
+
+    c.username = ' admin ';
+    click(el, 'Email me a code');
+    f.detectChanges();
+    expect(auth.forgot).toHaveBeenCalledWith('admin');
+    expect(el.querySelector('h1')!.textContent).toBe('Set a new password');
+    expect(el.querySelector('.ok')!.textContent).toContain('in**@halappafoundation.in');
+    expect(el.querySelectorAll('app-eye').length).toBe(2);
+
+    // checks before anything is sent
+    c.code = '12a'; c.resetPassword();
+    expect(c.error()).toBe('Enter the 6-digit code from the email');
+    c.code = '123 456'; c.newPassword = 'short'; c.resetPassword();
+    expect(c.error()).toBe('The new password needs at least 8 characters');
+    c.newPassword = 'Brand@New456'; c.newPassword2 = 'Different@1'; c.resetPassword();
+    expect(c.error()).toBe("The two new passwords don't match");
+    expect(auth.resetPassword).not.toHaveBeenCalled();
+
+    c.newPassword2 = 'Brand@New456';
+    c.resetPassword();
+    expect(auth.resetPassword).toHaveBeenCalledWith('admin', '123456', 'Brand@New456');
+    f.detectChanges();
+    expect(el.querySelector('h1')!.textContent).toBe('Admin sign in');
+    expect(el.querySelector('.ok')!.textContent).toContain('Password changed');
+    expect(c.newPassword).toBe('');
+    expect(c.username).toBe(' admin '); // kept, ready to sign in
+  });
+
+  it('shows the server reason (wrong code, email not set up) and allows a new code', () => {
+    const bad = throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'The code is wrong or has expired. Ask for a new code.' } }));
+    const { f, c, auth, el } = make({ reset: bad });
+    c.username = 'admin';
+    c.startForgot();
+    c.sendCode();
+    f.detectChanges();
+    c.code = '000000'; c.newPassword = c.newPassword2 = 'Brand@New456';
+    c.resetPassword();
+    f.detectChanges();
+    expect(el.querySelector('.err')!.textContent).toContain('wrong or has expired');
+    expect(c.busy()).toBeFalse();
+    click(el, 'Send a new code');
+    expect(auth.forgot).toHaveBeenCalledTimes(2);
+  });
+
+  it('when email is not set up on the server, Forgot explains it and stays on the form', () => {
+    const notSetUp = throwError(() => new HttpErrorResponse({ status: 400, error: { message: "Password reset by email isn't set up on the server yet" } }));
+    const { f, c, el } = make({ forgot: notSetUp });
+    c.startForgot();
+    c.username = 'admin';
+    c.sendCode();
+    f.detectChanges();
+    expect(c.mode()).toBe('forgot');
+    expect(el.querySelector('.err')!.textContent).toContain("isn't set up on the server");
+    click(el, 'Back to sign in');
+    f.detectChanges();
+    expect(c.mode()).toBe('signin');
+    expect(c.error()).toBe('');
+  });
+});
+
 describe('Admin: dashboard', () => {
   it('shows the three quick actions and live counts', () => {
     setup();

@@ -23,11 +23,22 @@ export class AuthService {
       }));
   }
 
-  logout() {
+  /** Ends the session. `signedOut` = the admin clicked Sign out (the login page then says so). */
+  logout(signedOut = false) {
     sessionStorage.removeItem(KEY);
     sessionStorage.removeItem(KEY + '-user');
     this.user.set(null);
-    this.router.navigateByUrl('/admin/login');
+    this.router.navigate(['/admin/login'], signedOut ? { queryParams: { signedOut: 1 } } : {});
+  }
+
+  /** "Forgot password?" step 1: emails a 6-digit code to the foundation's admin email. */
+  forgot(username: string) {
+    return this.http.post<{ message: string }>('/api/auth/forgot', { username });
+  }
+
+  /** Step 2: the emailed code and a new password. */
+  resetPassword(username: string, code: string, password: string) {
+    return this.http.post<{ message: string }>('/api/auth/reset', { username, code, password });
   }
 }
 

@@ -64,6 +64,23 @@ class AuthApiTest extends ApiTestBase {
     }
 
     @Test
+    void forgotPasswordExplainsWhenEmailIsNotSetUp() throws Exception {
+        // This test context has no SMTP host, so no code can be sent
+        mvc.perform(post("/api/auth/forgot").with(newIp()).contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"admin\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("isn't set up on the server")));
+        // Reset needs a code that was sent; none exists
+        mvc.perform(post("/api/auth/reset").with(newIp()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"admin\",\"code\":\"123456\",\"password\":\"Whatever@123\"}"))
+                .andExpect(status().isBadRequest());
+        // Both are reachable without signing in
+        mvc.perform(post("/api/auth/reset").with(newIp()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        org.assertj.core.api.Assertions.assertThat(AuthController.mask("info@halappafoundation.in")).isEqualTo("in**@halappafoundation.in");
+        org.assertj.core.api.Assertions.assertThat(AuthController.mask("a@x.org")).isEqualTo("a**@x.org");
+    }
+
+    @Test
     void changePasswordFlow() throws Exception {
         // Wrong current password
         mvc.perform(post("/api/auth/change-password").with(admin()).contentType(MediaType.APPLICATION_JSON)

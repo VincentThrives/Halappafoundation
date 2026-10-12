@@ -446,7 +446,21 @@ describe('Admin: menu', () => {
     expect(labels).toEqual(['Dashboard', 'Enquiries', 'Inbox', 'Bulk messages', 'Voucher check-in', 'Press & Views', 'Gallery', 'Timeline', 'Settings']);
     expect(f.nativeElement.querySelector('.badge').textContent).toBe('4');
     f.nativeElement.querySelector('.foot button').click();
-    expect(auth.logout).toHaveBeenCalled();
+    expect(auth.logout).toHaveBeenCalledWith(true);
+    f.destroy();
+  });
+
+  it('top bar on every admin page shows who is signed in and a Sign out button', () => {
+    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 0 })) };
+    const auth = { user: () => 'halappaadmin', logout: jasmine.createSpy('logout') };
+    setup(a, [{ provide: AuthService, useValue: auth }]);
+    const f = TestBed.createComponent(AdminShellComponent);
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.topbar .who').textContent.trim()).toBe('halappaadmin');
+    const btn: HTMLButtonElement = f.nativeElement.querySelector('.topbar .signout');
+    expect(btn.textContent!.trim()).toBe('Sign out');
+    btn.click();
+    expect(auth.logout).toHaveBeenCalledWith(true);
     f.destroy();
   });
 

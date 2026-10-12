@@ -46,6 +46,9 @@ app:
     from: ${MAIL_FROM:Halappa Foundation <info@halappafoundation.in>}
     # New enquiries are emailed here
     notify-to: ${MAIL_NOTIFY_TO:info@halappafoundation.in}
+  admin:
+    # "Forgot password?" on the admin login emails a 6-digit code here (needs the SMTP settings above).
+    recovery-email: ${ADMIN_RECOVERY_EMAIL:${MAIL_NOTIFY_TO:info@halappafoundation.in}}
   seed:
     # First admin account, created once from these values when the database has no admin. Later restarts and deploys
     # never change it; change the password in Admin -> Settings (needs the current one). Nothing is ever generated:
