@@ -8,6 +8,8 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -28,7 +30,7 @@ class DataSeederAdminTest {
     @Test
     void firstStartCreatesTheAdminWithTheConfiguredPassword() {
         ReflectionTestUtils.setField(seeder, "adminPassword", "Chosen@Pass1");
-        when(admins.count()).thenReturn(0L);
+        when(admins.findAll()).thenReturn(List.of());
 
         seeder.seedAdmin();
 
@@ -40,7 +42,7 @@ class DataSeederAdminTest {
 
     @Test
     void withoutAConfiguredPasswordNothingIsGeneratedOrCreated() {
-        when(admins.count()).thenReturn(0L);
+        when(admins.findAll()).thenReturn(List.of());
         for (String blank : new String[] { null, "", "   " }) {
             ReflectionTestUtils.setField(seeder, "adminPassword", blank);
             seeder.seedAdmin();
@@ -52,7 +54,8 @@ class DataSeederAdminTest {
     void redeployNeverChangesAnExistingAdmin() {
         // An admin already exists (e.g. its password was changed in Settings); SEED_ADMIN_PASSWORD now differs.
         ReflectionTestUtils.setField(seeder, "adminPassword", "Different@Pass2");
-        when(admins.count()).thenReturn(1L);
+        AdminUser existing = new AdminUser(); existing.setUsername("admin");
+        when(admins.findAll()).thenReturn(List.of(existing));
 
         seeder.seedAdmin();
         seeder.seedAdmin();
@@ -60,5 +63,50 @@ class DataSeederAdminTest {
         verify(admins, never()).save(any());
         verify(admins, never()).delete(any());
         verify(admins, never()).deleteAll();
+    }
+
+    @Test
+    void theSuperAdminDoesNotStopTheAdminBeingCreated() {
+        ReflectionTestUtils.setField(seeder, "adminPassword", "Chosen@Pass1");
+        AdminUser sup = new AdminUser(); sup.setUsername("superadmin"); sup.setRole(AdminUser.SUPER_ADMIN);
+        when(admins.findAll()).thenReturn(List.of(sup));
+        seeder.seedAdmin();
+        verify(admins).save(any());
+    }
+
+    // ---------- super admin ----------
+
+    @Test
+    void superAdminIsCreatedOnceFromItsOwnSetting() {
+        ReflectionTestUtils.setField(seeder, "superUser", "owner");
+        ReflectionTestUtils.setField(seeder, "superPassword", "Super@Pass1");
+        when(admins.existsByRole(AdminUser.SUPER_ADMIN)).thenReturn(false);
+        when(admins.findByUsername("owner")).thenReturn(java.util.Optional.empty());
+
+        seeder.seedSuperAdmin();
+
+        ArgumentCaptor<AdminUser> saved = ArgumentCaptor.forClass(AdminUser.class);
+        verify(admins).save(saved.capture());
+        assertThat(saved.getValue().getUsername()).isEqualTo("owner");
+        assertThat(saved.getValue().superAdmin()).isTrue();
+        assertThat(encoder.matches("Super@Pass1", saved.getValue().getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void superAdminIsNeverGeneratedReplacedOrMadeFromAnExistingAdmin() {
+        // no password: nothing
+        ReflectionTestUtils.setField(seeder, "superPassword", "");
+        when(admins.existsByRole(AdminUser.SUPER_ADMIN)).thenReturn(false);
+        seeder.seedSuperAdmin();
+        // already exists: untouched even with a new password
+        ReflectionTestUtils.setField(seeder, "superPassword", "Other@Pass2");
+        when(admins.existsByRole(AdminUser.SUPER_ADMIN)).thenReturn(true);
+        seeder.seedSuperAdmin();
+        // username belongs to an admin: refused
+        ReflectionTestUtils.setField(seeder, "superUser", "admin");
+        when(admins.existsByRole(AdminUser.SUPER_ADMIN)).thenReturn(false);
+        when(admins.findByUsername("admin")).thenReturn(java.util.Optional.of(new AdminUser()));
+        seeder.seedSuperAdmin();
+        verify(admins, never()).save(any());
     }
 }

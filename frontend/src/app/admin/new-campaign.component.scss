@@ -41,3 +41,7 @@
 .tpl-pick select { flex: 1; }
 .tpl-pick .btn { white-space: nowrap; }
 .tpl-note { margin: 6px 0 0; font-size: .88rem; color: #8a5a00; }
+.cost { margin: 0 auto 0 0; color: var(--ink); font-size: .95rem; }
+.cost b { color: var(--m-800); }
+.cost.short { color: #9a1220; }
+.cost.short span { font-weight: 600; }

@@ -2,7 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { map } from 'rxjs';
 import { toParams } from '../core/api.service';
-import { CampaignView, Channels, Enquiry, GalleryItem, ImportResult, InboxThread, Message, Page, Post, Settings, TimelineEntry, WaTemplates } from '../core/models';
+import { CampaignView, Channels, Enquiry, GalleryItem, ImportResult, InboxThread, Message, Page, Post, Settings, TimelineEntry, WaTemplates,
+  WalletAdmin, WalletInfo, WalletLogQuery, WalletRates, WalletTxn } from '../core/models';
 
 export interface EnquiryQuery {
   q?: string; status?: string; channel?: string; type?: string; from?: string; to?: string;
@@ -13,6 +14,26 @@ export class AdminApi {
   private http = inject(HttpClient);
 
   dashboard() { return this.http.get<any>('/api/admin/dashboard'); }
+
+  // ---------- Wallet (own) ----------
+  wallet() { return this.http.get<WalletInfo>('/api/admin/wallet'); }
+  walletLog(f: WalletLogQuery = {}, page = 0) {
+    return this.http.get<Page<WalletTxn>>('/api/admin/wallet/log', { params: toParams({ ...f, page, size: 50 }) });
+  }
+
+  // ---------- Super admin ----------
+  superAdmins() { return this.http.get<WalletAdmin[]>('/api/super/admins'); }
+  recharge(username: string, amount: string, note: string) {
+    return this.http.post<WalletTxn>(`/api/super/admins/${encodeURIComponent(username)}/recharge`, { amount, note });
+  }
+  deduct(username: string, amount: string, note: string) {
+    return this.http.post<WalletTxn>(`/api/super/admins/${encodeURIComponent(username)}/deduct`, { amount, note });
+  }
+  superRates() { return this.http.get<WalletRates>('/api/super/rates'); }
+  setRates(r: { whatsapp: string; sms: string; email: string }) { return this.http.put<WalletRates>('/api/super/rates', r); }
+  audit(f: WalletLogQuery = {}, page = 0) {
+    return this.http.get<Page<WalletTxn>>('/api/super/audit', { params: toParams({ ...f, page, size: 50 }) });
+  }
 
   // Enquiries
   enquiries(q: EnquiryQuery, page: number, size: number) {

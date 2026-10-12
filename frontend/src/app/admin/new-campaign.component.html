@@ -188,6 +188,16 @@
 </div>
 
 <div class="card send-bar">
+  @if (wallet(); as w) {
+    <p class="cost" [class.short]="short()">
+      @if (w.superAdmin) { Super admin sends aren't charged. }
+      @else if (!paid()) { No charge: {{ freeReason() }}. }
+      @else {
+        Cost: {{ estimate() }} × {{ rupees(rate()) }} = <b>{{ rupees(costPaise()) }}</b> · Wallet {{ rupees(w.balancePaise) }}
+        @if (short()) { <br><span>Not enough balance; ask the super admin to recharge.</span> }
+      }
+    </p>
+  }
   @if (error()) { <p class="err">{{ error() }}</p> }
   <button class="btn btn-maroon" (click)="send()" [disabled]="busy()">
     <app-icon name="send" /> {{ busy() ? 'Preparing…' : 'Send to ' + estimate() + ' people' }}

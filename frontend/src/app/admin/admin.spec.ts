@@ -7,7 +7,7 @@ import { AdminApi } from './admin-api.service';
 import { EnquiriesComponent } from './enquiries.component';
 import { LoginComponent } from './login.component';
 import { DashboardComponent } from './dashboard.component';
-import { AuthService, adminGuard } from '../core/auth.service';
+import { AuthService, adminGuard, superGuard } from '../core/auth.service';
 import { routes } from '../app.routes';
 import { stubIntersectionObserver } from '../testing';
 
@@ -196,7 +196,7 @@ describe('Admin: sign in page', () => {
     f.componentInstance.username = 'admin';
     f.componentInstance.password = 'pw';
     f.componentInstance.submit();
-    expect(auth.login).toHaveBeenCalledWith('admin', 'pw');
+    expect(auth.login).toHaveBeenCalledWith('admin', 'pw', false);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/admin');
   });
 
@@ -207,6 +207,46 @@ describe('Admin: sign in page', () => {
     f.componentInstance.submit();
     expect(f.componentInstance.error()).toBe('Wrong username or password');
     expect(f.componentInstance.busy()).toBeFalse();
+  });
+});
+
+describe('Hidden /superadmin sign-in', () => {
+  function make(opts: { loggedIn?: boolean; isSuper?: boolean; superPage?: boolean } = {}) {
+    sessionStorage.clear();
+    const auth = { loggedIn: !!opts.loggedIn, isSuper: !!opts.isSuper,
+      login: jasmine.createSpy('login').and.returnValue(of({ role: 'SUPER_ADMIN' })) };
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: auth },
+      { provide: ActivatedRoute, useValue: { snapshot: { data: { superAdmin: opts.superPage ?? true }, queryParamMap: convertToParamMap({}) } } }] });
+    const nav = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const f = TestBed.createComponent(LoginComponent);
+    f.detectChanges();
+    return { f, c: f.componentInstance, auth, nav, el: f.nativeElement as HTMLElement };
+  }
+
+  it('says super admin, signs in in super admin mode and opens the super admin screen', () => {
+    const { c, auth, nav, el } = make();
+    expect(el.querySelector('h1')!.textContent).toBe('Super admin sign in');
+    c.username = 'superadmin';
+    c.password = 'pw';
+    c.submit();
+    expect(auth.login).toHaveBeenCalledWith('superadmin', 'pw', true);
+    expect(nav).toHaveBeenCalledWith('/admin/super');
+  });
+
+  it('a signed-in super admin goes straight in; a signed-in admin still sees the form', () => {
+    expect(make({ loggedIn: true, isSuper: true }).nav).toHaveBeenCalledWith('/admin/super');
+  });
+
+  it('a signed-in admin opening /superadmin is not let in', () => {
+    const { nav, el } = make({ loggedIn: true, isSuper: false });
+    expect(nav).not.toHaveBeenCalled();
+    expect(el.querySelector('form')).toBeTruthy();
+  });
+
+  it('the normal admin login never mentions the super admin', () => {
+    const { el } = make({ superPage: false });
+    expect(el.querySelector('h1')!.textContent).toBe('Admin sign in');
+    expect(el.textContent!.toLowerCase()).not.toContain('super');
   });
 });
 
@@ -362,8 +402,28 @@ describe('Routes', () => {
   it('every admin page is behind the sign-in guard, the login page is not', () => {
     const admin = routes.find(r => r.path === 'admin')!;
     expect(admin.canActivate).toContain(adminGuard);
-    expect(admin.children!.map(c => c.path)).toEqual(['', 'enquiries', 'inbox', 'messages', 'messages/new', 'messages/:id', 'vouchers', 'whatsapp', 'posts', 'gallery', 'timeline', 'settings']);
+    expect(admin.children!.map(c => c.path)).toEqual(['', 'enquiries', 'inbox', 'messages', 'messages/new', 'messages/:id', 'vouchers', 'whatsapp', 'posts', 'gallery', 'timeline', 'settings', 'wallet', 'super']);
     expect(routes.find(r => r.path === 'admin/login')!.canActivate).toBeUndefined();
+    // the Super admin page has its own guard on top of the sign-in one
+    expect(admin.children!.find(c => c.path === 'super')!.canActivate).toEqual([superGuard]);
+  });
+
+  it('/superadmin is a separate, unguarded sign-in page in super admin mode', () => {
+    const r = routes.find(x => x.path === 'superadmin')!;
+    expect(r.data).toEqual({ superAdmin: true });
+    expect(r.canActivate).toBeUndefined();
+  });
+
+  it('super admin guard: only the super admin gets in; admins go to the dashboard', () => {
+    const run = (loggedIn: boolean, isSuper: boolean) => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: { loggedIn, isSuper } }] });
+      const r = TestBed.runInInjectionContext(() => superGuard({} as any, {} as any));
+      return r === true ? true : TestBed.inject(Router).serializeUrl(r as any);
+    };
+    expect(run(true, true)).toBeTrue();
+    expect(run(true, false)).toBe('/admin');
+    expect(run(false, false)).toBe('/superadmin'); // never reveals the admin login
   });
 
   it('has every public page from the footer', () => {

@@ -27,7 +27,7 @@ describe('AuthService, interceptor and guard', () => {
   it('login stores token and user for this browser tab', () => {
     auth.login('admin', 'pw').subscribe();
     const req = http.expectOne('/api/auth/login');
-    expect(req.request.body).toEqual({ username: 'admin', password: 'pw' });
+    expect(req.request.body).toEqual({ username: 'admin', password: 'pw', superAdmin: false });
     req.flush({ token: 'T1', username: 'admin' });
     expect(auth.loggedIn).toBeTrue();
     expect(auth.token).toBe('T1');
@@ -52,6 +52,29 @@ describe('AuthService, interceptor and guard', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/admin/login'], {}); // expired: no "you signed out" note
   });
 
+  it('the hidden /superadmin page signs in as super admin and keeps the role', () => {
+    auth.login('owner', 'pw', true).subscribe();
+    const req = http.expectOne('/api/auth/login');
+    expect(req.request.body).toEqual({ username: 'owner', password: 'pw', superAdmin: true });
+    req.flush({ token: 'T2', username: 'owner', role: 'SUPER_ADMIN' });
+    expect(auth.isSuper).toBeTrue();
+    expect(sessionStorage.getItem('hf-admin-token-role')).toBe('SUPER_ADMIN');
+  });
+
+  it('the super admin signs out back to /superadmin, never the admin login', () => {
+    sessionStorage.setItem('hf-admin-token', 'T2');
+    auth.role.set('SUPER_ADMIN');
+    auth.logout(true);
+    expect(router.navigate).toHaveBeenCalledWith(['/superadmin'], { queryParams: { signedOut: 1 } });
+    expect(auth.isSuper).toBeFalse();
+  });
+
+  it('super admin requests carry the sign-in token', () => {
+    sessionStorage.setItem('hf-admin-token', 'T2');
+    client.get('/api/super/admins').subscribe();
+    expect(http.expectOne('/api/super/admins').request.headers.get('Authorization')).toBe('Bearer T2');
+  });
+
   it('Sign out clears the session and tells the login page', () => {
     sessionStorage.setItem('hf-admin-token', 'T1');
     sessionStorage.setItem('hf-admin-token-user', 'halappaadmin');
@@ -73,6 +96,12 @@ describe('AuthService, interceptor and guard', () => {
     expect(r.request.body).toEqual({ username: 'admin', code: '123456', password: 'New@Pass123' });
     f.flush({ message: 'sent' });
     r.flush({ message: 'ok' });
+  });
+
+  it('a 401 for a call made after signing out does not sign out again (keeps the /superadmin redirect)', () => {
+    client.get('/api/admin/wallet').subscribe({ error: () => {} }); // no token stored
+    http.expectOne('/api/admin/wallet').flush({}, { status: 401, statusText: 'Unauthorized' });
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it('a 401 from a public call does not sign out', () => {

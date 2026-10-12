@@ -27,18 +27,25 @@ export class LoginComponent {
   readonly error = signal('');
   /** Green message: signed out, code sent, password changed. */
   readonly notice = signal('');
+  /** On the hidden /superadmin page. */
+  readonly superPage: boolean;
 
   constructor() {
-    if (this.auth.loggedIn) { this.router.navigateByUrl('/admin'); return; }
-    if (inject(ActivatedRoute).snapshot.queryParamMap.get('signedOut')) this.notice.set("You've signed out.");
+    const route = inject(ActivatedRoute).snapshot;
+    this.superPage = !!route.data?.['superAdmin'];
+    // Already signed in with the right kind of account: go straight in.
+    if (this.auth.loggedIn && this.auth.isSuper === this.superPage) { this.router.navigateByUrl(this.home()); return; }
+    if (route.queryParamMap.get('signedOut')) this.notice.set("You've signed out.");
   }
+
+  private home() { return this.superPage ? '/admin/super' : '/admin'; }
 
   submit() {
     if (!this.username || !this.password) { this.error.set('Enter username and password'); return; }
     this.busy.set(true);
     this.error.set('');
-    this.auth.login(this.username, this.password).subscribe({
-      next: () => this.router.navigateByUrl('/admin'),
+    this.auth.login(this.username, this.password, this.superPage).subscribe({
+      next: () => this.router.navigateByUrl(this.home()),
       error: e => { this.busy.set(false); this.error.set(errMsg(e, 'Could not sign in')); },
     });
   }

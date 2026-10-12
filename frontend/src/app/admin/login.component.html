@@ -3,7 +3,7 @@
     @case ('signin') {
       <form class="box" (ngSubmit)="submit()">
         <img src="img/logo.jpg" alt="">
-        <h1>Admin sign in</h1>
+        <h1>{{ superPage ? 'Super admin sign in' : 'Admin sign in' }}</h1>
         <p>Halappa Foundation</p>
         @if (notice()) { <div class="ok" role="status">✓ {{ notice() }}</div> }
         <div class="field">

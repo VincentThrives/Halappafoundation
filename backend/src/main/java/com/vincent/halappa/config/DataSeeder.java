@@ -24,11 +24,14 @@ public class DataSeeder implements CommandLineRunner {
 
     @Value("${app.seed.admin-username:admin}") private String adminUser;
     @Value("${app.seed.admin-password:}") private String adminPassword;
+    @Value("${app.seed.superadmin-username:superadmin}") private String superUser;
+    @Value("${app.seed.superadmin-password:}") private String superPassword;
 
     @Override
     public void run(String... args) {
         settings.ensureDefaults();
         seedAdmin();
+        seedSuperAdmin();
 
         if (timeline.count() == 0) seedTimeline();
         if (posts.count() == 0) seedArticles();
@@ -114,8 +117,31 @@ public class DataSeeder implements CommandLineRunner {
      * survives every restart and deploy; it changes only through Settings → Change password (needs the current one).
      * No password is ever generated: without SEED_ADMIN_PASSWORD no admin is created until it is set.
      */
+    /**
+     * Creates the super admin from SEED_SUPERADMIN_USERNAME / SEED_SUPERADMIN_PASSWORD, once, when there is none.
+     * Same rules as the admin: never generated, never changed by restarts or deploys.
+     */
+    void seedSuperAdmin() {
+        if (admins.existsByRole(AdminUser.SUPER_ADMIN)) return;
+        if (superPassword == null || superPassword.isBlank()) {
+            log.info("No super admin yet: set SEED_SUPERADMIN_PASSWORD (and optionally SEED_SUPERADMIN_USERNAME) to create one.");
+            return;
+        }
+        String name = superUser == null || superUser.isBlank() ? "superadmin" : superUser.trim();
+        if (admins.findByUsername(name).isPresent()) {
+            log.error("Can't create the super admin: the username '{}' is already an admin. Choose another SEED_SUPERADMIN_USERNAME.", name);
+            return;
+        }
+        AdminUser a = new AdminUser();
+        a.setUsername(name);
+        a.setRole(AdminUser.SUPER_ADMIN);
+        a.setPasswordHash(encoder.encode(superPassword));
+        admins.save(a);
+        log.info("Created super admin '{}' from SEED_SUPERADMIN_PASSWORD. It will not be changed by later restarts or deploys.", name);
+    }
+
     void seedAdmin() {
-        if (admins.count() > 0) return;
+        if (admins.findAll().stream().anyMatch(a -> !a.superAdmin())) return; // an admin exists (the super admin doesn't count)
         if (adminPassword == null || adminPassword.isBlank()) {
             log.error("No admin account yet: set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_USERNAME) and restart to create it.");
             return;

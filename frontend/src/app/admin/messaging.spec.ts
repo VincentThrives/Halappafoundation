@@ -36,8 +36,11 @@ function msg(over: Partial<Message> = {}): Message {
     body: 'Namaskara Ramesh, voucher KIT-0001', voucher: 'KIT-0001', createdAt: '2026-09-29T10:00:00', ...over };
 }
 
+const FREE_WALLET = { username: 'admin', superAdmin: false, balancePaise: 0, rates: { whatsappPaise: 0, smsPaise: 0, emailPaise: 0 } };
+
 function stub(channels: Channels = NONE) {
   return {
+    wallet: jasmine.createSpy('wallet').and.returnValue(of(FREE_WALLET)),
     channels: jasmine.createSpy('channels').and.returnValue(of(channels)),
     importRecipients: jasmine.createSpy('importRecipients').and.returnValue(of(IMPORT)),
     recipientsTemplate: jasmine.createSpy('recipientsTemplate').and.returnValue(of({ blob: new Blob(['x']), name: 't.xlsx' })),
@@ -411,6 +414,65 @@ describe('New bulk message', () => {
     f.detectChanges();
     expect(f.nativeElement.querySelector('.tpl-body')).toBeNull();
     expect(c.preview()).toContain('Namaskara Ramesh');
+  });
+
+  describe('wallet cost', () => {
+    function withWallet(balancePaise: number, waPaise: number, superAdmin = false) {
+      history.replaceState({}, '');
+      api = stub(ALL);
+      api.wallet.and.returnValue(of({ username: 'admin', superAdmin, balancePaise, rates: { whatsappPaise: waPaise, smsPaise: 25, emailPaise: 10 } }));
+      configure(api);
+      spyOn(TestBed.inject(ConfirmService), 'ask').and.resolveTo(true);
+      f = TestBed.createComponent(NewCampaignComponent);
+      c = f.componentInstance;
+      f.detectChanges();
+      c.upload(new File(['x'], 'list.xlsx')); // 2 people
+      c.templateName = 'kit_invite';
+      f.detectChanges();
+    }
+    const costText = () => (f.nativeElement.querySelector('.cost')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+    it('shows people × price = total against the wallet', () => {
+      withWallet(1000, 80);
+      expect(c.costPaise()).toBe(160);
+      expect(costText()).toContain('Cost: 2 × ₹0.80 = ₹1.60 · Wallet ₹10.00');
+      expect(f.nativeElement.querySelector('.cost').classList.contains('short')).toBeFalse();
+    });
+
+    it('blocks the send early when the wallet is short', async () => {
+      withWallet(100, 80);
+      expect(costText()).toContain('Not enough balance');
+      await c.send();
+      expect(c.error()).toContain('this send costs ₹1.60 and the wallet has ₹1.00');
+      expect(api.createCampaign).not.toHaveBeenCalled();
+    });
+
+    it('manual WhatsApp links cost nothing, even with an empty wallet', async () => {
+      withWallet(0, 80);
+      c.manual = true;
+      f.detectChanges();
+      expect(c.paid()).toBeFalse();
+      expect(costText()).toContain('No charge: sending by hand');
+      await c.send();
+      expect(api.createCampaign).toHaveBeenCalled();
+    });
+
+    it('a ₹0 price costs nothing', () => {
+      withWallet(0, 0);
+      expect(costText()).toContain('the price for this channel is ₹0');
+    });
+
+    it('super admin sends are not charged', () => {
+      withWallet(0, 80, true);
+      expect(costText()).toContain("Super admin sends aren't charged");
+    });
+
+    it('the confirmation says how much will be taken', async () => {
+      withWallet(1000, 80);
+      await c.send();
+      const ask = TestBed.inject(ConfirmService).ask as jasmine.Spy;
+      expect(ask.calls.mostRecent().args[0].message).toContain('₹1.60 will be taken from the wallet now');
+    });
   });
 
   it('email adds a personalised subject', async () => {

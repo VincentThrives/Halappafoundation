@@ -1,8 +1,10 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AdminApi } from './admin-api.service';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { IconComponent } from '../core/icon.component';
+import { rupees } from '../core/models';
 
 @Component({
   selector: 'app-admin-shell',
@@ -26,18 +28,36 @@ export class AdminShellComponent {
     { path: '/admin/settings', icon: 'settings', label: 'Settings' },
   ];
 
+  /** Menu for this user: admins get their Wallet, the super admin gets the Super admin page. */
+  menu() {
+    return this.auth.isSuper
+      ? [...this.links, { path: '/admin/super', icon: 'briefcase', label: 'Super admin' }]
+      : [...this.links.slice(0, 5), { path: '/admin/wallet', icon: 'briefcase', label: 'Wallet' }, ...this.links.slice(5)];
+  }
+
+  readonly rupees = rupees;
+  /** Wallet balance in the top bar (admins only), refreshed on every page change. */
+  readonly balance = signal<number | null>(null);
+
   readonly unread = signal(0);
   private api = inject(AdminApi);
   private timer?: ReturnType<typeof setInterval>;
 
   constructor() {
-    inject(Router).events.subscribe(e => {
-      if (e instanceof NavigationEnd) { this.open.set(false); this.checkUnread(); }
+    // Stops when the admin area closes (e.g. after Sign out), so it never calls the API signed out.
+    inject(Router).events.pipe(takeUntilDestroyed()).subscribe(e => {
+      if (e instanceof NavigationEnd) { this.open.set(false); this.checkUnread(); this.checkWallet(); }
     });
     this.checkUnread();
+    this.checkWallet();
     this.timer = setInterval(() => this.checkUnread(), 30000);
     inject(DestroyRef).onDestroy(() => clearInterval(this.timer));
   }
 
   private checkUnread() { this.api.unread().subscribe({ next: r => this.unread.set(r.unread), error: () => {} }); }
+
+  private checkWallet() {
+    if (this.auth.isSuper) { this.balance.set(null); return; }
+    this.api.wallet().subscribe({ next: w => this.balance.set(w.balancePaise), error: () => {} });
+  }
 }

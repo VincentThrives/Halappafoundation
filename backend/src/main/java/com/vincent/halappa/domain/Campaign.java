@@ -43,6 +43,13 @@ public class Campaign implements Sequenced {
     private String status;
 
     private String createdBy;
+
+    /** Wallet charged for this send (null for manual sends and super admin sends) and the price per message. */
+    private String chargedTo;
+    private long ratePaise;
+    /** Messages paid for so far, and how many of those were refunded (failed or cancelled). */
+    private int chargedCount;
+    private int refundedCount;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime finishedAt;
 }

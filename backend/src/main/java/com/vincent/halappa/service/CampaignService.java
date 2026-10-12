@@ -34,6 +34,7 @@ public class CampaignService {
     private final CampaignRunner runner;
     private final SequenceService sequences;
     private final MongoTemplate mongo;
+    private final WalletService wallet;
 
     @Value("${app.campaign.max-recipients:5000}")
     private int maxRecipients = 5000;
@@ -134,6 +135,17 @@ public class CampaignService {
         c.setStatus(manual ? "manual" : "running");
         c.setCreatedBy(admin);
         c = campaigns.save(c);
+
+        // Automatic sends are paid from the admin's wallet up front; nothing is created if it doesn't cover them.
+        if (!manual && admin != null) {
+            try {
+                wallet.chargeSend(c, admin, people.size());
+            } catch (RuntimeException e) {
+                campaigns.delete(c);
+                throw e;
+            }
+            c = campaigns.save(c);
+        }
 
         // Ids for all recipients in one round trip, then a single bulk insert (up to 5000 documents).
         long firstId = sequences.reserve("messages", people.size());
@@ -293,15 +305,24 @@ public class CampaignService {
         messages.moveStatus(id, "queued", "cancelled");
         c.setStatus("cancelled");
         c.setFinishedAt(LocalDateTime.now());
-        return view(campaigns.save(c));
+        c = campaigns.save(c);
+        wallet.settle(c); // messages that won't go out are refunded
+        return view(c);
     }
 
     public View retryFailed(Long id) {
         Campaign c = find(id);
         if ("manual".equals(c.getMode())) throw ApiException.badRequest("Manual sends are retried by opening the links again");
         if ("running".equals(c.getStatus())) throw ApiException.badRequest("Wait for the send to finish first");
-        int n = messages.moveStatus(id, "failed", "queued");
-        if (n == 0) throw ApiException.badRequest("Nothing failed");
+        long failed = mongo.count(org.springframework.data.mongodb.core.query.Query.query(
+                org.springframework.data.mongodb.core.query.Criteria.where("campaignId").is(id).and("status").is("failed")), Message.class);
+        if (failed == 0) throw ApiException.badRequest("Nothing failed");
+        if (c.getChargedTo() != null) {
+            wallet.settle(c);                                   // failed ones were refunded…
+            wallet.chargeSend(c, c.getChargedTo(), (int) failed); // …and are paid again for the retry (refused if short)
+            c = campaigns.save(c);
+        }
+        messages.moveStatus(id, "failed", "queued");
         c.setStatus("running");
         c.setFinishedAt(null);
         campaigns.save(c);

@@ -71,3 +71,22 @@ export interface InboxThread {
 }
 
 export type Settings = Record<string, string>;
+
+// ---------- Wallet ----------
+export interface WalletRates { whatsappPaise: number; smsPaise: number; emailPaise: number; updatedBy?: string; updatedAt?: string; }
+export interface WalletInfo { username: string; superAdmin: boolean; balancePaise: number; rates: WalletRates; }
+export interface WalletAdmin { username: string; role: 'ADMIN' | 'SUPER_ADMIN'; walletPaise: number; }
+/** One line of the wallet audit log. Amounts in paise; negative = money out. */
+export interface WalletTxn {
+  id: number; admin: string; type: 'RECHARGE' | 'DEDUCT' | 'SEND' | 'REPLY' | 'REFUND' | 'RATES';
+  amountPaise: number; balanceAfterPaise: number; channel?: string; campaignId?: number; campaignName?: string;
+  messages: number; ratePaise: number; note?: string; by?: string; at: string;
+}
+export interface WalletLogQuery { admin?: string; type?: string; from?: string; to?: string; }
+
+/** 12345 paise → "₹123.45" (Indian digit grouping). */
+export function rupees(paise: number | null | undefined): string {
+  const p = Number(paise ?? 0);
+  const sign = p < 0 ? '-' : '';
+  return sign + '₹' + (Math.abs(p) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

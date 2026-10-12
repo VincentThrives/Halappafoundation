@@ -38,7 +38,8 @@ public class AuthController {
 
     @Value("${app.admin.recovery-email:}") private String recoveryEmail;
 
-    public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
+    /** superAdmin = signing in on the hidden /superadmin page. Each page only accepts its own kind of account. */
+    public record LoginRequest(@NotBlank String username, @NotBlank String password, Boolean superAdmin) {}
     public record ChangePassword(@NotBlank String current, @NotBlank @Size(min = 8, max = 100) String next) {}
     public record ForgotRequest(@NotBlank String username) {}
     public record ResetRequest(@NotBlank String username, @NotBlank String code, @NotBlank @Size(min = 8, max = 100) String password) {}
@@ -49,12 +50,18 @@ public class AuthController {
             throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Too many attempts. Try again in 15 minutes.");
         AdminUser u = admins.findByUsername(r.username().trim())
                 .filter(a -> encoder.matches(r.password(), a.getPasswordHash()))
+                // The super admin signs in only at /superadmin and admins only at /admin/login; the wrong page
+                // gives the same answer as a wrong password, so it doesn't reveal that a super admin exists.
+                .filter(a -> a.superAdmin() == Boolean.TRUE.equals(r.superAdmin()))
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Wrong username or password"));
-        return Map.of("token", jwt.issue(u.getUsername()), "username", u.getUsername());
+        return Map.of("token", jwt.issue(u.getUsername(), u.roleOrDefault()), "username", u.getUsername(), "role", u.roleOrDefault());
     }
 
     @GetMapping("/me")
-    public Map<String, String> me(Authentication auth) { return Map.of("username", auth.getName()); }
+    public Map<String, Object> me(Authentication auth) {
+        AdminUser u = admins.findByUsername(auth.getName()).orElseThrow(() -> ApiException.notFound("User"));
+        return Map.of("username", u.getUsername(), "role", u.roleOrDefault(), "walletPaise", u.getWalletPaise());
+    }
 
     @PostMapping("/change-password")
     public Map<String, String> changePassword(@Valid @RequestBody ChangePassword r, Authentication auth) {

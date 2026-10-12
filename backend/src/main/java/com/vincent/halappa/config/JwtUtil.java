@@ -28,15 +28,29 @@ public class JwtUtil {
         this.ttlMs = ttlMinutes * 60_000;
     }
 
-    public String issue(String username) {
+    /** Who is signed in and their role ("ADMIN" or "SUPER_ADMIN"). */
+    public record Token(String username, String role) {}
+
+    public String issue(String username) { return issue(username, "ADMIN"); }
+
+    public String issue(String username, String role) {
         long now = System.currentTimeMillis();
-        return Jwts.builder().subject(username).issuedAt(new Date(now)).expiration(new Date(now + ttlMs)).signWith(key).compact();
+        return Jwts.builder().subject(username).claim("role", role).issuedAt(new Date(now))
+                .expiration(new Date(now + ttlMs)).signWith(key).compact();
     }
 
     /** @return the username, or null if the token is invalid or expired */
     public String parse(String token) {
+        Token t = parseToken(token);
+        return t == null ? null : t.username();
+    }
+
+    /** @return username and role, or null if the token is invalid or expired */
+    public Token parseToken(String token) {
         try {
-            return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getSubject();
+            var claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+            String role = claims.get("role", String.class);
+            return new Token(claims.getSubject(), "SUPER_ADMIN".equals(role) ? "SUPER_ADMIN" : "ADMIN");
         } catch (JwtException | IllegalArgumentException e) {
             return null;
         }

@@ -5,7 +5,7 @@ import { AdminApi, EnquiryQuery, downloadBlob } from './admin-api.service';
 import { IconComponent } from '../core/icon.component';
 import { errMsg } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
-import { Channels, ImportResult, WaTemplate } from '../core/models';
+import { Channels, ImportResult, WaTemplate, WalletInfo, rupees } from '../core/models';
 
 type ChannelKey = 'whatsapp' | 'email' | 'sms';
 type Source = 'excel' | 'given' | 'range' | 'all' | 'pasted';
@@ -84,7 +84,33 @@ export class NewCampaignComponent {
   readonly busy = signal(false);
   readonly error = signal('');
 
+  // ---------- wallet ----------
+  readonly rupees = rupees;
+  readonly wallet = signal<WalletInfo | null>(null);
+  /** Automatic sends through a provider are charged; "send by hand" WhatsApp links are free. */
+  private automatic(): boolean {
+    const c = this.ch();
+    if (!c) return false;
+    if (this.channel === 'whatsapp') return c.whatsappApi && !this.manual;
+    return this.channel === 'email' ? c.email : c.sms;
+  }
+  rate(): number {
+    const w = this.wallet();
+    if (!w || w.superAdmin || !this.automatic()) return 0;
+    return this.channel === 'whatsapp' ? w.rates.whatsappPaise : this.channel === 'sms' ? w.rates.smsPaise : w.rates.emailPaise;
+  }
+  paid(): boolean { return this.rate() > 0; }
+  /** Why this send costs nothing (shown instead of the cost line). */
+  freeReason(): string {
+    if (this.channel === 'whatsapp' && (this.manual || !this.ch()?.whatsappApi)) return 'sending by hand with WhatsApp links';
+    if (!this.automatic()) return 'this channel isn\'t connected';
+    return 'the price for this channel is ₹0';
+  }
+  costPaise(): number { return this.estimate() * this.rate(); }
+  short(): boolean { const w = this.wallet(); return !!w && this.paid() && this.costPaise() > w.balancePaise; }
+
   constructor() {
+    this.api.wallet().subscribe({ next: w => this.wallet.set(w), error: () => {} });
     this.api.channels().subscribe(c => { this.ch.set(c); if (c.whatsappApi) this.loadTemplates(); });
     if (this.given?.ids) this.enquiryCount.set(this.given.ids.length);
     else if (this.given?.filter) this.api.enquiries(this.given.filter, 0, 1).subscribe(p => this.enquiryCount.set(p.total));
@@ -265,11 +291,16 @@ export class NewCampaignComponent {
       const missing = this.templateParams.findIndex(v => !v.trim());
       if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }
     }
+    if (this.short()) {
+      this.error.set(`Not enough balance: this send costs ${rupees(this.costPaise())} and the wallet has ${rupees(this.wallet()!.balancePaise)}. Ask the super admin to recharge.`);
+      return;
+    }
     if (this.estimate() > this.max()) { this.error.set(`That's more than ${this.max()} people. Split the list into smaller sends.`); return; }
     const via = { whatsapp: 'WhatsApp', email: 'email', sms: 'SMS' }[this.channel];
     const ok = await this.confirmer.ask({
       title: `Send to ${this.estimate()} people?`, detail: this.name, icon: 'send', confirmText: 'Send now',
-      message: `This goes out by ${via}${this.voucherOn ? ', each with their own entrance voucher' : ''}. Messages that have been sent can't be taken back.`,
+      message: `This goes out by ${via}${this.voucherOn ? ', each with their own entrance voucher' : ''}. Messages that have been sent can't be taken back.`
+        + (this.paid() ? ` ${rupees(this.costPaise())} will be taken from the wallet now; anything that fails is refunded.` : ''),
     });
     if (!ok) return;
     this.busy.set(true);

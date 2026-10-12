@@ -21,6 +21,17 @@ public class AdminUser implements Sequenced {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    /** "SUPER_ADMIN" or "ADMIN" (missing = ADMIN, for accounts created before roles existed). */
+    private String role;
+    /** Wallet balance in paise (₹1 = 100). Recharged by the super admin, spent on WhatsApp/SMS/email sends. */
+    private long walletPaise;
+
+    public static final String SUPER_ADMIN = "SUPER_ADMIN", ADMIN = "ADMIN";
+
+    public String roleOrDefault() { return SUPER_ADMIN.equals(role) ? SUPER_ADMIN : ADMIN; }
+
+    public boolean superAdmin() { return SUPER_ADMIN.equals(role); }
+
     /** "Forgot password": hash of the emailed 6-digit code, when it stops working, wrong tries so far. */
     private String resetCodeHash;
     private LocalDateTime resetExpiresAt;

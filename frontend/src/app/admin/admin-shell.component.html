@@ -2,7 +2,7 @@
   <aside class="side">
     <a routerLink="/admin" class="brand"><img src="img/logo.jpg" alt=""><span>Halappa<br><small>Admin</small></span></a>
     <nav>
-      @for (l of links; track l.path) {
+      @for (l of menu(); track l.path) {
         <a [routerLink]="l.path" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: l.path === '/admin' }">
           <app-icon [name]="l.icon" /> {{ l.label }}
           @if (l.path === '/admin/inbox' && unread()) { <i class="badge">{{ unread() }}</i> }
@@ -18,6 +18,11 @@
     <header class="topbar">
       <button class="burger" (click)="open.set(!open())" aria-label="Menu"><app-icon name="menu" /></button>
       <span class="title">Halappa Foundation · Admin</span>
+      @if (balance() !== null) {
+        <a routerLink="/admin/wallet" class="wallet-chip" [class.low]="(balance() ?? 0) <= 0" title="Wallet balance">
+          <app-icon name="briefcase" /><span>{{ rupees(balance()) }}</span></a>
+      }
+      @if (auth.isSuper) { <span class="super-tag">Super admin</span> }
       <span class="who" title="Signed in"><span class="dot"></span>{{ auth.user() }}</span>
       <button class="signout" (click)="auth.logout(true)" aria-label="Sign out"><app-icon name="logout" /><span>Sign out</span></button>
     </header>

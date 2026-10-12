@@ -55,6 +55,9 @@ app:
     # without SEED_ADMIN_PASSWORD no admin is created.
     admin-username: ${SEED_ADMIN_USERNAME:admin}
     admin-password: ${SEED_ADMIN_PASSWORD:}
+    # Super admin (recharges wallets, sets prices, sees the audit log). Same rules: created once, never generated.
+    superadmin-username: ${SEED_SUPERADMIN_USERNAME:superadmin}
+    superadmin-password: ${SEED_SUPERADMIN_PASSWORD:}
 
   campaign:
     max-recipients: ${CAMPAIGN_MAX_RECIPIENTS:5000}

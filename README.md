@@ -41,6 +41,21 @@ info@halappafoundation.in); enter it with a new password. The code works for 10 
 requests are rate-limited, and the answer never reveals whether a username exists. Needs the SMTP settings (`MAIL_*`).
 **Sign out** is in the top bar of every admin page (and at the bottom of the menu).
 
+## Super admin and wallets
+
+The **super admin** signs in only at `/superadmin` (not linked anywhere; the normal admin login refuses the super admin
+account and `/superadmin` refuses admins, both with "Wrong username or password"). The super admin can:
+
+- **Recharge** each admin's wallet (₹, with a note such as a UPI reference) or **deduct** from it;
+- set the **price per message** for WhatsApp, SMS and Email (₹0 = free; starts at ₹0);
+- read the **audit log** of every wallet movement (who, when, which send, messages × price, balance after),
+  filterable by admin, type and dates. Admins see their own lines under **Wallet**.
+
+Admins see their balance in the top bar. An automatic bulk send is paid **in full before it starts** (people × price)
+and refused if the wallet doesn't cover it; messages that **fail or are cancelled are refunded** when the send ends
+(a retry pays again for the retried ones). An Inbox reply sent by the website costs one message and is refunded if
+it isn't sent. "Send by hand" WhatsApp links are free, and the super admin's own sends are logged but not charged.
+
 ## What the admin can do
 
 | Screen | Purpose |
@@ -81,11 +96,11 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 209 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 224 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
-# Frontend: 205 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
+# Frontend: 235 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
 cd frontend && npm run test:ci
 ```
 
@@ -109,6 +124,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `MONGODB_URI` | MongoDB Atlas connection string, e.g. `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority` |
 | `MONGODB_DATABASE` | Database name (default `halappa`). Ids are numeric and come from the `counters` collection |
 | `JWT_SECRET` | 64+ random characters (required in production; without it sign-ins end on every restart) |
+| `SEED_SUPERADMIN_USERNAME`, `SEED_SUPERADMIN_PASSWORD` | Creates the super admin once (default username `superadmin`); same rules as the admin: never generated, never changed by deploys. Sign in at `/superadmin` |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | Creates the first admin once, on a database with no admin. Required before the first start; later changes to it have no effect (the stored password stays fixed). Keep the database (`MONGODB_URI`) the same across deploys |
 | `ADMIN_RECOVERY_EMAIL` | Where "Forgot password?" codes are emailed (default `MAIL_NOTIFY_TO`, then info@halappafoundation.in) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |

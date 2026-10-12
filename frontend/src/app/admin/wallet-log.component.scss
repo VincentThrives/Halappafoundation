@@ -1,0 +1,17 @@
+:host { display: block; min-width: 0; }
+.tbl-wrap { overflow-x: auto; }
+table.log { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.log th { text-align: left; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 10px 12px; border-bottom: 2px solid var(--line); white-space: nowrap; }
+.log td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.log .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.log .plus { color: #1b6b3a; font-weight: 700; }
+.log .minus { color: #9a1220; font-weight: 700; }
+.log .nowrap { white-space: nowrap; }
+.log .muted { color: var(--muted); font-size: .84rem; margin-top: 2px; }
+.log a { color: var(--m-700); font-weight: 600; }
+.log .empty { text-align: center; color: var(--muted); padding: 28px; }
+.type { display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: .8rem; font-weight: 700; white-space: nowrap; background: #eee; color: #444; }
+.type.recharge, .type.refund { background: #dff5e6; color: #1b6b3a; }
+.type.send, .type.reply { background: #fde2e4; color: #9a1220; }
+.type.deduct { background: #fff1c9; color: #8a5a00; }
+.type.rates { background: #e7ecff; color: #2b3f8f; }

@@ -31,6 +31,7 @@ public class CampaignRunner {
     private final SmsService sms;
     private final TaskExecutor executor;
     private final Set<Long> active = ConcurrentHashMap.newKeySet();
+    @org.springframework.beans.factory.annotation.Autowired private WalletService wallet;
 
     @Value("${app.campaign.whatsapp-delay-ms:60}") long whatsappDelay;
     @Value("${app.campaign.email-delay-ms:300}") long emailDelay;
@@ -67,6 +68,7 @@ public class CampaignRunner {
                 c.setStatus("done");
                 c.setFinishedAt(LocalDateTime.now());
                 campaigns.save(c);
+                wallet.settle(c); // refund messages that failed
                 log.info("Campaign #{} finished", id);
                 return;
             }

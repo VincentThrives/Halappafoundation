@@ -24,9 +24,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String h = req.getHeader("Authorization");
         if (h != null && h.startsWith("Bearer ")) {
-            String user = jwt.parse(h.substring(7));
-            if (user != null) {
-                var auth = new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+            JwtUtil.Token t = jwt.parseToken(h.substring(7));
+            if (t != null) {
+                // The super admin can do everything an admin can, plus the super-admin screens.
+                var roles = "SUPER_ADMIN".equals(t.role())
+                        ? List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"))
+                        : List.of(new SimpleGrantedAuthority("ROLE_ADMIN"));
+                var auth = new UsernamePasswordAuthenticationToken(t.username(), null, roles);
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
         }

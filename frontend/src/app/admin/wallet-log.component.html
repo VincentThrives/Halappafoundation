@@ -1,0 +1,37 @@
+<div class="tbl-wrap">
+  <table class="log">
+    <thead>
+      <tr>
+        <th>When</th>
+        @if (showAdmin()) { <th>Admin</th> }
+        <th>What</th>
+        <th>Details</th>
+        <th class="num">Amount</th>
+        <th class="num">Balance after</th>
+        <th>By</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (t of items(); track t.id) {
+        <tr>
+          <td class="nowrap">{{ t.at | date: 'd MMM y, h:mm a' }}</td>
+          @if (showAdmin()) { <td>{{ t.admin === '-' ? '—' : t.admin }}</td> }
+          <td><span class="type" [class]="'type ' + t.type.toLowerCase()">{{ labels[t.type] || t.type }}</span></td>
+          <td>
+            @if (t.channel) { <b>{{ channels[t.channel] || t.channel }}</b> }
+            @if (t.campaignId) { · <a [routerLink]="['/admin/messages', t.campaignId]">{{ t.campaignName || ('Send #' + t.campaignId) }}</a> }
+            @if (detail(t)) { <div class="muted">{{ detail(t) }}</div> }
+            @if (t.note) { <div class="muted">{{ t.note }}</div> }
+          </td>
+          <td class="num" [class.plus]="t.amountPaise > 0" [class.minus]="t.amountPaise < 0">
+            {{ t.type === 'RATES' ? '—' : (t.amountPaise > 0 ? '+' : '') + rupees(t.amountPaise) }}
+          </td>
+          <td class="num">{{ t.type === 'RATES' ? '—' : rupees(t.balanceAfterPaise) }}</td>
+          <td>{{ t.by || '—' }}</td>
+        </tr>
+      } @empty {
+        <tr><td [attr.colspan]="showAdmin() ? 7 : 6" class="empty">Nothing here yet.</td></tr>
+      }
+    </tbody>
+  </table>
+</div>
