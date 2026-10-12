@@ -131,6 +131,37 @@ class WhatsAppMsg91Test {
     }
 
     @Test
+    void templateListAsksMsg91ForTheConnectedNumber() {
+        reply = "[{\"name\":\"kit_invite\",\"language\":\"en\",\"status\":\"APPROVED\",\"components\":[{\"type\":\"BODY\",\"text\":\"Hi {{1}}, voucher {{2}}\"}]}]";
+        List<WhatsAppService.Template> list = msg91("KEY", "+91 99001 23406", "").templates();
+
+        assertThat(path.get()).isEqualTo("/api/v5/whatsapp/get-template-client/919900123406");
+        assertThat(authKey.get()).isEqualTo("KEY");
+        assertThat(list).singleElement().satisfies(t -> {
+            assertThat(t.name()).isEqualTo("kit_invite");
+            assertThat(t.body()).isEqualTo("Hi {{1}}, voucher {{2}}");
+            assertThat(t.variables()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void templateListShowsMsg91sOwnErrorText() {
+        // The exact answer MSG91 gives for a wrong or missing auth key
+        status = 401;
+        reply = "{\"status\":\"fail\",\"hasError\":true,\"errors\":\"Unauthorized\",\"code\":\"401\",\"apiError\":\"201\"}";
+        assertThatThrownBy(() -> msg91("BAD", "919900123406", "").templates()).hasMessage("MSG91: " + reply);
+        status = 200; // same error inside a 200 response
+        assertThatThrownBy(() -> msg91("BAD", "919900123406", "").templates()).hasMessage("MSG91: Unauthorized");
+    }
+
+    @Test
+    void templateListIsNotAvailableForMetaOrWhenNotConnected() {
+        assertThat(new WhatsAppService("token", "123", "v21.0", base).templates()).isNull();
+        assertThat(msg91("", "919900123406", "").templates()).isNull();
+        assertThat(path.get()).isNull();
+    }
+
+    @Test
     void reportsHttpErrors() {
         status = 401;
         reply = "{\"message\":\"Unauthorized authkey\"}";

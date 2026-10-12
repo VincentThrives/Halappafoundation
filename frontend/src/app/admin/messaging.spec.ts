@@ -2,7 +2,7 @@ import { ConfirmService } from '../core/confirm.service';
 import { ComponentFixture, TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { AdminApi } from './admin-api.service';
 import { DEFAULT_INVITE, NewCampaignComponent, fillTemplate, personalise, templateVariables } from './new-campaign.component';
 import { CampaignsComponent } from './campaigns.component';
@@ -258,7 +258,8 @@ describe('New bulk message', () => {
     c.upload(new File(['x'], 'list.xlsx'));
 
     const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
-    expect([...select.options].map(o => o.textContent!.trim())).toContain('kit_invite · kn');
+    expect([...select.options].map(o => o.textContent!.trim())).toEqual(['— Choose an approved template (1) —', 'kit_invite · Kannada']);
+    expect(select.disabled).toBeFalse();
     c.chooseTemplate('kit_invite|kn');
     f.detectChanges();
 
@@ -311,6 +312,94 @@ describe('New bulk message', () => {
     f.detectChanges();
     expect(c.preview()).toBe(`Hello Ramesh, voucher KIT-${new Date().getFullYear()}-0001`);
     expect(f.nativeElement.textContent).toContain(`Template list isn't available`);
+  });
+
+  it('selecting from the dropdown puts the template text into the Message box (via the real <select>)', async () => {
+    history.replaceState({}, '');
+    api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [
+      KIT_TEMPLATE, { name: 'thank_you', language: 'en', status: 'APPROVED', variables: 1, body: 'Thank you {{1}} for coming!' }] }));
+    configure(api);
+    f = TestBed.createComponent(NewCampaignComponent);
+    c = f.componentInstance;
+    f.detectChanges();
+
+    const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
+    select.value = select.options[2].value; // thank_you · English
+    select.dispatchEvent(new Event('change'));
+    f.detectChanges();
+    await f.whenStable(); // form controls receive their value a tick later
+    f.detectChanges();
+
+    const box: HTMLTextAreaElement = f.nativeElement.querySelector('.tpl-body');
+    expect(box.value).toBe('Thank you {{1}} for coming!');
+    expect(box.readOnly).toBeTrue();
+    expect(f.nativeElement.textContent).toContain('from template thank_you');
+    expect(c.preview()).toBe('Thank you Ramesh for coming!');
+
+    // switching to another template replaces the message and its blanks
+    select.value = select.options[1].value;
+    select.dispatchEvent(new Event('change'));
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    expect(box.value).toBe(KIT_TEMPLATE.body);
+    expect(f.nativeElement.querySelectorAll('.var').length).toBe(3);
+  });
+
+  it('shows "Loading approved templates…" until MSG91 answers', async () => {
+    history.replaceState({}, '');
+    api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    const answer = new Subject<any>();
+    api.whatsappTemplates.and.returnValue(answer);
+    configure(api);
+    f = TestBed.createComponent(NewCampaignComponent);
+    c = f.componentInstance;
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
+    expect(select.options[0].textContent).toContain('Loading approved templates');
+    expect(select.disabled).toBeTrue();
+    answer.next({ available: true, templates: [KIT_TEMPLATE] });
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    expect(select.disabled).toBeFalse();
+    expect(select.options.length).toBe(2);
+  });
+
+  it('no approved templates yet: says so and offers Refresh', () => {
+    create({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [] }));
+    c.loadTemplates();
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl select').options[0].textContent).toContain('No approved templates found');
+    expect(f.nativeElement.querySelector('.tpl-note').textContent).toContain('No approved templates found in MSG91 yet');
+
+    // after approving one in MSG91, Refresh brings it in
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [KIT_TEMPLATE] }));
+    (f.nativeElement.querySelector('.tpl-pick button') as HTMLButtonElement).click();
+    f.detectChanges();
+    expect(c.templates().length).toBe(1);
+    expect(f.nativeElement.querySelector('.tpl-note')).toBeNull();
+  });
+
+  it("MSG91 errors are shown with the reason, and the name/paste fallback appears", () => {
+    create({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: false, templates: [], message: "Couldn't load templates: MSG91: Unauthorized" }));
+    c.loadTemplates();
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl-note').textContent).toContain('MSG91: Unauthorized');
+    expect(f.nativeElement.querySelector('.tpl select').options[0].textContent).toContain('Template list not available');
+    expect(f.nativeElement.querySelector('input[placeholder="kit_invite"]')).toBeTruthy();
+
+    // a network/server failure is reported too
+    api.whatsappTemplates.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500, error: { message: 'Server down' } })));
+    c.loadTemplates();
+    f.detectChanges();
+    expect(c.templatesNote()).toContain('Server down');
+    expect(c.templatesLoading()).toBeFalse();
   });
 
   it('switching to manual links hides the template and brings back the free-text message', () => {

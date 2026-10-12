@@ -76,6 +76,9 @@ export class NewCampaignComponent {
   readonly templates = signal<WaTemplate[]>([]);
   readonly templatesNote = signal('');
   readonly templatesLoaded = signal(false);
+  readonly templatesLoading = signal(false);
+  /** True when MSG91 answered with the list (even an empty one); false = not listable here or an error. */
+  readonly templatesAvailable = signal(false);
   manual = false;
 
   readonly busy = signal(false);
@@ -102,19 +105,33 @@ export class NewCampaignComponent {
 
   // ---------- WhatsApp template ----------
   loadTemplates() {
+    this.templatesLoading.set(true);
     this.api.whatsappTemplates().subscribe({
       next: r => {
         this.templates.set(r.templates ?? []);
-        this.templatesNote.set(r.available ? '' : r.message ?? '');
+        this.templatesAvailable.set(!!r.available);
+        this.templatesNote.set(r.available ? (r.templates?.length ? '' : 'No approved templates found in MSG91 yet.') : r.message ?? '');
         this.templatesLoaded.set(true);
+        this.templatesLoading.set(false);
       },
-      error: () => {
+      error: e => {
         this.templates.set([]);
-        this.templatesNote.set("Couldn't load templates; type the name and paste the text.");
+        this.templatesAvailable.set(false);
+        this.templatesNote.set(errMsg(e, "Couldn't load the templates") + '. Type the name and paste the text instead.');
         this.templatesLoaded.set(true);
+        this.templatesLoading.set(false);
       },
     });
   }
+
+  /** "kn" → "Kannada" for the dropdown. */
+  langName(code: string): string {
+    const names: Record<string, string> = { en: 'English', en_us: 'English (US)', en_gb: 'English (UK)', kn: 'Kannada', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', mr: 'Marathi' };
+    return names[(code ?? '').toLowerCase()] ?? code;
+  }
+
+  /** Text came from MSG91's list, so it's the approved wording and is shown read-only. */
+  fromList(): boolean { return this.templates().some(t => t.name === this.templateName && t.language === this.templateLang) && !!this.templateBody; }
 
   /** Picked from the list: fills name, language and text, and suggests name/voucher for {{1}}/{{2}}. */
   chooseTemplate(key: string) {

@@ -114,34 +114,41 @@
   }
   @if (channel === 'whatsapp' && ch()?.whatsappApi) {
     <div class="tpl stack">
-      @if (templates().length) {
-        <div class="field"><label>WhatsApp template
-          @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(required for sending through MSG91)</span> }
+      <div class="field">
+        <label>WhatsApp template
+          @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(approved in MSG91 — required for sending)</span> }
           @else { <span class="muted">(needed for people who haven't messaged you in 24h)</span> }</label>
-          <select class="input" [ngModel]="templateKey()" (ngModelChange)="chooseTemplate($event)" [disabled]="manual">
-            <option value="">— Choose an approved template —</option>
-            @for (t of templates(); track t.name + '|' + t.language) {
-              <option [value]="t.name + '|' + t.language">{{ t.name }} · {{ t.language }}</option>
+        <div class="tpl-pick">
+          <select class="input" [ngModel]="templateKey()" (ngModelChange)="chooseTemplate($event)"
+                  [disabled]="manual || templatesLoading() || !templates().length">
+            @if (templatesLoading()) { <option value="">Loading approved templates…</option> }
+            @else if (!templates().length) { <option value="">{{ templatesAvailable() ? 'No approved templates found' : 'Template list not available' }}</option> }
+            @else {
+              <option value="">— Choose an approved template ({{ templates().length }}) —</option>
+              @for (t of templates(); track t.name + '|' + t.language) {
+                <option [value]="t.name + '|' + t.language">{{ t.name }} · {{ langName(t.language) }}</option>
+              }
             }
           </select>
+          <button type="button" class="btn btn-sm btn-ghost" (click)="loadTemplates()" [disabled]="templatesLoading()" title="Reload templates from MSG91">
+            <app-icon name="history" /> {{ templatesLoading() ? 'Loading…' : 'Refresh' }}</button>
         </div>
-      } @else {
+        @if (templatesLoaded() && templatesNote()) { <p class="tpl-note">{{ templatesNote() }}</p> }
+      </div>
+      @if (templatesLoaded() && !templatesLoading() && !templates().length) {
         <div class="grid2">
-          <div class="field"><label>Approved WhatsApp template name
-            @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(required: exactly as in MSG91)</span> }
-            @else { <span class="muted">(needed for people who haven't messaged you in 24h)</span> }</label>
+          <div class="field"><label>Template name <span class="muted">(exactly as in MSG91)</span></label>
             <input class="input" [(ngModel)]="templateName" placeholder="kit_invite" [disabled]="manual"></div>
           <div class="field"><label>Template language</label>
             <select class="input" [(ngModel)]="templateLang" [disabled]="manual"><option value="en">English (en)</option><option value="kn">Kannada (kn)</option></select></div>
         </div>
-        @if (templatesLoaded() && templatesNote()) { <p class="muted">{{ templatesNote() }}</p> }
       }
-
       @if (templateMode()) {
         <div class="field">
-          <label>Template text <span class="muted">— approved by WhatsApp, so the wording itself can't be changed here{{ templates().length ? '' : '; paste it from MSG91 to see the full message' }}</span></label>
-          <textarea class="input tpl-body" rows="5" [(ngModel)]="templateBody" (ngModelChange)="syncParams()" maxlength="4000"
-                    [readonly]="templates().length > 0 && !!templateBody" placeholder="Namaskara {{ tpl1 }}, … voucher {{ tpl2 }}"></textarea>
+          <label>Message <span class="muted">— from template <b>{{ templateName }}</b>.
+            {{ fromList() ? 'This is the wording WhatsApp approved, so it can\'t be changed here; fill in the blanks below.' : 'Paste the template text from MSG91 here to see the full message.' }}</span></label>
+          <textarea class="input tpl-body" rows="6" [(ngModel)]="templateBody" (ngModelChange)="syncParams()" maxlength="4000"
+                    [readonly]="fromList()" placeholder="Namaskara {{ tpl1 }}, … voucher {{ tpl2 }}"></textarea>
         </div>
         @if (varCount()) {
           <div class="vars">
