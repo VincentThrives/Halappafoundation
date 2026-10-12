@@ -34,14 +34,16 @@ public class AdminCampaignController {
     /** Which channels can send and receive right now. */
     @GetMapping("/channels")
     public Map<String, Object> channels(@org.springframework.beans.factory.annotation.Value("${whatsapp.app-secret:}") String waSecret,
+                                        @org.springframework.beans.factory.annotation.Value("${whatsapp.msg91.webhook-token:}") String msg91WebhookToken,
                                         @org.springframework.beans.factory.annotation.Value("${sms.inbound-token:}") String smsToken,
                                         @org.springframework.beans.factory.annotation.Value("${app.campaign.max-recipients:5000}") int max) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("whatsappApi", whatsapp.apiEnabled());
         m.put("whatsappProvider", whatsapp.provider());
-        m.put("whatsappTemplatesOnly", whatsapp.apiEnabled() && whatsapp.templatesOnly());
-        // Incoming WhatsApp is read from Meta's webhook only.
-        m.put("whatsappInbound", whatsapp.apiEnabled() && !whatsapp.templatesOnly() && !waSecret.isBlank());
+        m.put("whatsappTemplatesOnly", whatsapp.apiEnabled() && whatsapp.bulkNeedsTemplate());
+        // Replies arrive through Meta's signed webhook, or MSG91's webhook with its secret token.
+        boolean msg91 = "msg91".equals(whatsapp.provider());
+        m.put("whatsappInbound", whatsapp.apiEnabled() && !(msg91 ? msg91WebhookToken : waSecret).isBlank());
         m.put("email", mail.enabled());
         m.put("emailInbound", imap.enabled());
         m.put("sms", sms.enabled());

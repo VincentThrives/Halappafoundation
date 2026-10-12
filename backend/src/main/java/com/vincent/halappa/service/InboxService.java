@@ -136,8 +136,8 @@ public class InboxService {
             case "whatsapp", "web" -> {
                 String phone = Contacts.phone(contact);
                 if (phone == null) throw ApiException.badRequest("No valid WhatsApp number for this conversation");
-                // MSG91 only sends approved templates, so free-text replies go out as a wa.me link instead.
-                if (whatsapp.apiEnabled() && !whatsapp.templatesOnly()) {
+                // Sent from the website (Meta or MSG91); without a connected provider it becomes a wa.me link.
+                if (whatsapp.apiEnabled()) {
                     try {
                         String id = whatsapp.send(phone, text, null, null, null);
                         return new ReplyResult(recordOut("whatsapp", phone, name, null, text, "sent", id), null);

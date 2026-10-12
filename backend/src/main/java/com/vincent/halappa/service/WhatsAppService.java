@@ -18,7 +18,8 @@ import java.util.Map;
  * Sends WhatsApp messages through one of two providers, chosen by {@code whatsapp.provider}:
  * <ul>
  *   <li>{@code meta}: Meta's WhatsApp Business Cloud API directly (WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID);</li>
- *   <li>{@code msg91}: MSG91's WhatsApp API (MSG91_AUTH_KEY + MSG91_WHATSAPP_NUMBER), approved templates only.</li>
+ *   <li>{@code msg91}: MSG91's WhatsApp API (MSG91_AUTH_KEY + MSG91_WHATSAPP_NUMBER): templates for bulk sends,
+ *       free text for replies; replies and receipts arrive on /api/webhooks/msg91-whatsapp.</li>
  * </ul>
  * Plus wa.me helpers for manual mode when neither is connected.
  */
@@ -68,8 +69,11 @@ public class WhatsAppService {
         return isMsg91() ? !msg91AuthKey.isBlank() && !msg91Number.isBlank() : !token.isBlank() && !phoneNumberId.isBlank();
     }
 
-    /** MSG91 sends approved templates only (no free-text messages or replies). */
-    public boolean templatesOnly() { return isMsg91(); }
+    /**
+     * Bulk sends through MSG91 must use an approved template (they reach people who haven't messaged recently).
+     * One-to-one replies can still be free text within WhatsApp's 24-hour window.
+     */
+    public boolean bulkNeedsTemplate() { return isMsg91(); }
 
     private boolean isMsg91() { return "msg91".equals(provider); }
 
@@ -85,7 +89,22 @@ public class WhatsAppService {
      * Free text only reaches people who messaged in the last 24h; invitations need an approved template.
      */
     public String send(String to, String text, String template, String lang, List<String> params) {
-        return isMsg91() ? sendMsg91(to, template, lang, params) : sendMeta(to, text, template, lang, params);
+        if (!isMsg91()) return sendMeta(to, text, template, lang, params);
+        return template == null || template.isBlank() ? sendMsg91Text(to, text) : sendMsg91(to, template, lang, params);
+    }
+
+    /**
+     * MSG91 "session" message: plain text, accepted only within 24 hours of the person's last message to us
+     * (WhatsApp's rule). Used for Inbox replies.
+     */
+    private String sendMsg91Text(String to, String text) {
+        if (text == null || text.isBlank()) throw new IllegalStateException("Write the message first");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("integrated_number", msg91Number);
+        body.put("recipient_number", to);
+        body.put("content_type", "text");
+        body.put("text", text);
+        return postMsg91("/api/v5/whatsapp/whatsapp-outbound-message/", body);
     }
 
     private String sendMeta(String to, String text, String template, String lang, List<String> params) {
@@ -147,9 +166,14 @@ public class WhatsAppService {
         body.put("integrated_number", msg91Number);
         body.put("content_type", "template");
         body.put("payload", payload);
+        return postMsg91("/api/v5/whatsapp/whatsapp-outbound-message/bulk/", body);
+    }
+
+    /** Posts to MSG91 and returns its request id; MSG91 errors (HTTP or in the body) become exceptions. */
+    private String postMsg91(String path, Map<String, Object> body) {
         try {
             JsonNode res = msg91.post()
-                    .uri("/api/v5/whatsapp/whatsapp-outbound-message/bulk/")
+                    .uri(path)
                     .header("authkey", msg91AuthKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)

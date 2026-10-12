@@ -33,16 +33,19 @@ public class WebhookController {
     private final String verifyToken;
     private final String appSecret;
     private final String smsToken;
+    private final String msg91Token;
 
     public WebhookController(InboxService inbox, ObjectMapper json,
                              @Value("${whatsapp.verify-token:}") String verifyToken,
                              @Value("${whatsapp.app-secret:}") String appSecret,
-                             @Value("${sms.inbound-token:}") String smsToken) {
+                             @Value("${sms.inbound-token:}") String smsToken,
+                             @Value("${whatsapp.msg91.webhook-token:}") String msg91Token) {
         this.inbox = inbox;
         this.json = json;
         this.verifyToken = verifyToken;
         this.appSecret = appSecret;
         this.smsToken = smsToken;
+        this.msg91Token = msg91Token;
     }
 
     // ---------- WhatsApp ----------
@@ -104,6 +107,98 @@ public class WebhookController {
             default -> "[" + type + "]";
         };
     }
+
+    // ---------- WhatsApp through MSG91 ----------
+
+    /**
+     * MSG91 → WhatsApp → Webhook, for both Inbound and Outbound: .../api/webhooks/msg91-whatsapp?token=MSG91_WEBHOOK_TOKEN.
+     * Inbound = a person's message (saved to the Inbox); outbound = delivery status of what we sent (matched by MSG91's
+     * request id). Accepts one event, a list, or {"data": [...]}; some MSG91 fields hold JSON as a string.
+     * Always answers 200 quickly (MSG91 drops slow calls), duplicates are ignored.
+     */
+    @PostMapping("/msg91-whatsapp")
+    public ResponseEntity<Void> msg91WhatsApp(@RequestParam(name = "token", required = false) String token,
+                                              @RequestBody(required = false) String raw) {
+        if (msg91Token.isBlank() || !msg91Token.equals(token)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        try {
+            JsonNode root = json.readTree(raw == null || raw.isBlank() ? "{}" : raw);
+            JsonNode events = root.isArray() ? root : root.path("data").isArray() ? root.path("data") : json.createArrayNode().add(root);
+            for (JsonNode e : events) msg91Event(e);
+        } catch (Exception ex) {
+            log.warn("Could not read MSG91 WhatsApp webhook: {} | {}", ex.getMessage(), raw == null ? "" : raw.substring(0, Math.min(raw.length(), 500)));
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    private void msg91Event(JsonNode e) {
+        String direction = e.path("direction").asText("").toLowerCase();
+        String customer = Contacts.phone(firstOf(e, "customer_number", "customerNumber", "mobile", "sender", "from"));
+        String status = e.path("status").asText("").toLowerCase();
+        boolean inbound = direction.startsWith("in") || (direction.isEmpty() && status.isEmpty() && customer != null);
+        if (inbound) {
+            if (customer == null) { log.warn("MSG91 inbound WhatsApp without a customer number: {}", cap(e)); return; }
+            String id = firstOf(e, "message_uuid", "uuid", "messageId", "id", "request_id");
+            String name = firstOf(e, "customer_name", "profile_name", "name");
+            inbox.recordIn("whatsapp", customer, name, null, msg91Text(e), id);
+            return;
+        }
+        String mapped = switch (status) {
+            case "submitted", "sent" -> "sent";
+            case "delivered" -> "delivered";
+            case "read", "seen" -> "read";
+            case "failed", "rejected", "undelivered" -> "failed";
+            default -> null;
+        };
+        if (mapped == null) return;
+        String error = "failed".equals(mapped) ? firstOf(e, "failure_reason", "reason", "error", "errors", "description") : null;
+        for (String key : new String[] { "request_id", "requestId", "message_uuid", "uuid" }) {
+            String id = e.path(key).asText(null);
+            if (id != null && !id.isBlank()) inbox.updateStatus(id, mapped, error);
+        }
+    }
+
+    /** The person's message text from an MSG91 inbound event (text, button, caption or the message type). */
+    String msg91Text(JsonNode e) {
+        for (String key : new String[] { "content", "text", "message", "body" }) {
+            JsonNode v = parsed(e.path(key));
+            if (v.isTextual() && !v.asText().isBlank()) return v.asText();
+            if (v.isObject()) {
+                for (String inner : new String[] { "text", "body", "caption", "title", "payload" }) {
+                    JsonNode t = parsed(v.path(inner));
+                    if (t.isTextual() && !t.asText().isBlank()) return t.asText();
+                    if (t.path("body").isTextual()) return t.path("body").asText();
+                }
+            }
+        }
+        JsonNode msgs = parsed(e.path("messages"));
+        if (msgs.isArray() && msgs.size() > 0) return whatsappText(msgs.get(0));
+        String type = e.path("message_type").asText(e.path("contentType").asText("message"));
+        return "[" + type + "]";
+    }
+
+    /** MSG91 sends some values as JSON inside a string; parse those, leave plain text alone. */
+    private JsonNode parsed(JsonNode v) {
+        if (v.isTextual()) {
+            String s = v.asText().trim();
+            if (s.startsWith("{") || s.startsWith("[")) {
+                try { return json.readTree(s); } catch (Exception ignored) { }
+            }
+        }
+        return v;
+    }
+
+    private static String firstOf(JsonNode e, String... keys) {
+        for (String k : keys) {
+            JsonNode v = e.path(k);
+            if (!v.isMissingNode() && !v.isNull()) {
+                String s = v.isValueNode() ? v.asText() : v.toString();
+                if (!s.isBlank()) return s;
+            }
+        }
+        return null;
+    }
+
+    private static String cap(JsonNode e) { String s = e.toString(); return s.length() > 500 ? s.substring(0, 500) : s; }
 
     // ---------- SMS ----------
 

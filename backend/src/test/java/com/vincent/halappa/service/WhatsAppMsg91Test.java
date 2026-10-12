@@ -58,11 +58,11 @@ class WhatsAppMsg91Test {
         WhatsAppService ok = msg91("KEY", "919900123406", "");
         assertThat(ok.apiEnabled()).isTrue();
         assertThat(ok.provider()).isEqualTo("msg91");
-        assertThat(ok.templatesOnly()).isTrue();
+        assertThat(ok.bulkNeedsTemplate()).isTrue();
         // Meta stays the default and still allows free text
         WhatsAppService meta = new WhatsAppService("token", "123", "v21.0", base);
         assertThat(meta.provider()).isEqualTo("meta");
-        assertThat(meta.templatesOnly()).isFalse();
+        assertThat(meta.bulkNeedsTemplate()).isFalse();
         // Unknown provider names fall back to Meta
         assertThat(new WhatsAppService("other", "t", "1", "v21.0", base, "K", "9199", "", base).provider()).isEqualTo("meta");
     }
@@ -102,9 +102,24 @@ class WhatsAppMsg91Test {
     }
 
     @Test
-    void refusesFreeTextBecauseMsg91NeedsATemplate() {
-        assertThatThrownBy(() -> msg91("KEY", "919900123406", "").send("919876543210", "Hello", null, "en", List.of()))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("template");
+    void freeTextRepliesGoAsMsg91SessionMessages() {
+        String id = msg91("KEY", "919900123406", "").send("919876543210", "Thank you, see you at the event", null, null, null);
+
+        assertThat(id).isEqualTo("req-123");
+        assertThat(path.get()).isEqualTo("/api/v5/whatsapp/whatsapp-outbound-message/"); // not the bulk template path
+        assertThat(authKey.get()).isEqualTo("KEY");
+        JsonNode b = body.get();
+        assertThat(b.path("integrated_number").asText()).isEqualTo("919900123406");
+        assertThat(b.path("recipient_number").asText()).isEqualTo("919876543210");
+        assertThat(b.path("content_type").asText()).isEqualTo("text");
+        assertThat(b.path("text").asText()).isEqualTo("Thank you, see you at the event");
+        assertThat(b.has("payload")).isFalse();
+    }
+
+    @Test
+    void emptyFreeTextIsNotSent() {
+        assertThatThrownBy(() -> msg91("KEY", "919900123406", "").send("919876543210", "  ", null, "en", List.of()))
+                .isInstanceOf(IllegalStateException.class);
         assertThat(path.get()).isNull(); // nothing was sent
     }
 

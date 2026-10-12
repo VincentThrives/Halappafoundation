@@ -70,6 +70,9 @@ whatsapp:
     integrated-number: ${MSG91_WHATSAPP_NUMBER:}
     # Template namespace from MSG91 → WhatsApp → Templates (only if your account shows one)
     namespace: ${MSG91_WHATSAPP_NAMESPACE:}
+    # Secret for MSG91 → WhatsApp → Webhook (Inbound + Outbound):
+    # https://<backend>/api/webhooks/msg91-whatsapp?token=<this>. Blank = webhook switched off.
+    webhook-token: ${MSG91_WEBHOOK_TOKEN:}
   token: ${WHATSAPP_TOKEN:}
   phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
   api-version: ${WHATSAPP_API_VERSION:v21.0}

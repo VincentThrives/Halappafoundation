@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "whatsapp.provider=msg91",
         "whatsapp.msg91.integrated-number=919900123406",
         "sms.msg91.auth-key=AUTH",
+        "whatsapp.msg91.webhook-token=hook-secret",
         "app.campaign.whatsapp-delay-ms=0",
 })
 @AutoConfigureMockMvc
@@ -44,6 +45,7 @@ class Msg91WhatsAppApiTest {
 
     static final HttpServer SERVER;
     static final List<JsonNode> CALLS = new CopyOnWriteArrayList<>();
+    static final List<JsonNode> TEXTS = new CopyOnWriteArrayList<>();
     static final AtomicInteger IDS = new AtomicInteger();
     static final ObjectMapper M = new ObjectMapper();
 
@@ -61,6 +63,21 @@ class Msg91WhatsAppApiTest {
                 else {
                     CALLS.add(body);
                     out = ("{\"status\":\"success\",\"hasError\":false,\"request_id\":\"msg91-" + IDS.incrementAndGet() + "\"}").getBytes();
+                }
+                ex.getResponseHeaders().add("Content-Type", "application/json");
+                ex.sendResponseHeaders(200, out.length);
+                ex.getResponseBody().write(out);
+                ex.close();
+            });
+            // Session (free-text) messages: only accepted within 24h; numbers ending 9999 have no open window.
+            SERVER.createContext("/api/v5/whatsapp/whatsapp-outbound-message/", ex -> {
+                JsonNode body = M.readTree(ex.getRequestBody());
+                byte[] out;
+                if (body.path("recipient_number").asText().endsWith("9999"))
+                    out = "{\"status\":\"fail\",\"hasError\":true,\"errors\":\"Customer care window closed (24 hours)\"}".getBytes();
+                else {
+                    TEXTS.add(body);
+                    out = ("{\"status\":\"success\",\"hasError\":false,\"request_id\":\"txt-" + IDS.incrementAndGet() + "\"}").getBytes();
                 }
                 ex.getResponseHeaders().add("Content-Type", "application/json");
                 ex.sendResponseHeaders(200, out.length);
@@ -92,6 +109,7 @@ class Msg91WhatsAppApiTest {
         messages.deleteAll();
         campaigns.deleteAll();
         CALLS.clear();
+        TEXTS.clear();
         if (token == null) {
             String res = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"username\":\"admin\",\"password\":\"Test@12345\"}")).andReturn().getResponse().getContentAsString();
@@ -116,7 +134,7 @@ class Msg91WhatsAppApiTest {
                 .andExpect(jsonPath("$.whatsappApi").value(true))
                 .andExpect(jsonPath("$.whatsappProvider").value("msg91"))
                 .andExpect(jsonPath("$.whatsappTemplatesOnly").value(true))
-                .andExpect(jsonPath("$.whatsappInbound").value(false));
+                .andExpect(jsonPath("$.whatsappInbound").value(true)); // webhook token is set
     }
 
     @Test
@@ -189,13 +207,111 @@ class Msg91WhatsAppApiTest {
         assertThat(CALLS).isEmpty();
     }
 
+    // ---------- webhook: replies, delivery status, replying from the website ----------
+
+    private void webhook(String body) throws Exception {
+        mvc.perform(post("/api/webhooks/msg91-whatsapp").param("token", "hook-secret")
+                .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
+    }
+
+    private JsonNode thread(String contact) throws Exception {
+        return json.readTree(mvc.perform(get("/api/admin/inbox/thread").with(admin()).param("channel", "whatsapp").param("contact", contact))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
     @Test
-    void inboxRepliesBecomeWhatsAppLinksBecauseMsg91NeedsTemplates() throws Exception {
+    void fullConversationSentInviteDeliveryReadReplyAndAnswerFromTheWebsite() throws Exception {
+        // 1) the invite goes out through MSG91
+        String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("name", "Kit invite", "channel", "whatsapp", "template", "kit_invite",
+                        "message", "Namaskara {name}", "people", List.of(Map.of("name", "Ramesh", "phone", "9845012345"))))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        waitUntilFinished(json.readTree(res).path("campaign").path("id").asLong());
+        String requestId = messages.findAll().stream().filter(m -> "out".equals(m.getDirection())).findFirst().orElseThrow().getProviderId();
+
+        // 2) MSG91 reports delivered, then read (stringified-JSON content is fine)
+        webhook("{\"direction\":\"outbound\",\"status\":\"Delivered\",\"request_id\":\"" + requestId + "\",\"customer_number\":\"919845012345\",\"content\":\"{}\"}");
+        webhook("[{\"direction\":\"outbound\",\"status\":\"Read\",\"request_id\":\"" + requestId + "\",\"customer_number\":\"919845012345\"}]");
+
+        // 3) the person replies on WhatsApp
+        String reply = "{\"direction\":\"inbound\",\"customer_number\":\"919845012345\",\"customer_name\":\"Ramesh K\",\"message_type\":\"text\","
+                + "\"message_uuid\":\"in-1\",\"integrated_number\":\"919900123406\",\"content\":\"{\\\"text\\\":\\\"Yes, I will come. ಧನ್ಯವಾದ\\\"}\"}";
+        webhook(reply);
+        webhook(reply); // MSG91 retries: not saved twice
+
+        // The reply waits as unread in the Inbox (badge) until the admin opens the conversation
+        mvc.perform(get("/api/admin/inbox/unread").with(admin())).andExpect(jsonPath("$.unread").value(1));
+
+        // 4) admin answers from the website (free text inside the 24h window)
         mvc.perform(post("/api/admin/inbox/reply").with(admin()).contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of("channel", "whatsapp", "contact", "919845012345", "text", "Thank you"))))
+                        .content(json.writeValueAsString(Map.of("channel", "whatsapp", "contact", "919845012345", "text", "See you on Sunday"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.link").value("https://wa.me/919845012345?text=Thank%20you"))
-                .andExpect(jsonPath("$.message.status").value("manual"));
-        assertThat(CALLS).isEmpty();
+                .andExpect(jsonPath("$.message.status").value("sent"))
+                .andExpect(jsonPath("$.link").doesNotExist());
+        assertThat(TEXTS).hasSize(1);
+        assertThat(TEXTS.get(0).path("recipient_number").asText()).isEqualTo("919845012345");
+        assertThat(TEXTS.get(0).path("text").asText()).isEqualTo("See you on Sunday");
+
+        // One conversation, in order: invite (read) → their reply → our answer (opening it marks it read)
+        JsonNode t = thread("919845012345");
+        assertThat(t).hasSize(3);
+        assertThat(t.get(0).path("direction").asText()).isEqualTo("out");
+        assertThat(t.get(0).path("status").asText()).isEqualTo("read");
+        assertThat(t.get(1).path("direction").asText()).isEqualTo("in");
+        assertThat(t.get(1).path("body").asText()).isEqualTo("Yes, I will come. ಧನ್ಯವಾದ");
+        assertThat(t.get(1).path("name").asText()).isEqualTo("Ramesh K");
+        assertThat(t.get(2).path("direction").asText()).isEqualTo("out");
+        assertThat(t.get(2).path("body").asText()).isEqualTo("See you on Sunday");
+
+    }
+
+    @Test
+    void readsRepliesInTheDifferentShapesMsg91Uses() throws Exception {
+        webhook("{\"direction\":\"inbound\",\"customer_number\":\"919845011111\",\"uuid\":\"a1\",\"text\":\"plain text field\"}");
+        webhook("{\"data\":[{\"direction\":\"inbound\",\"customerNumber\":\"9845022222\",\"uuid\":\"a2\",\"content\":{\"text\":{\"body\":\"nested body\"}}}]}");
+        webhook("{\"direction\":\"inbound\",\"customer_number\":\"919845033333\",\"uuid\":\"a3\",\"messages\":\"[{\\\"type\\\":\\\"button\\\",\\\"button\\\":{\\\"text\\\":\\\"Attending\\\"}}]\"}");
+        webhook("{\"direction\":\"inbound\",\"customer_number\":\"919845044444\",\"uuid\":\"a4\",\"message_type\":\"image\",\"content\":\"{}\"}");
+
+        assertThat(thread("919845011111").get(0).path("body").asText()).isEqualTo("plain text field");
+        assertThat(thread("919845022222").get(0).path("body").asText()).isEqualTo("nested body");
+        assertThat(thread("919845033333").get(0).path("body").asText()).isEqualTo("Attending");
+        assertThat(thread("919845044444").get(0).path("body").asText()).isEqualTo("[image]");
+    }
+
+    @Test
+    void failedDeliveryShowsTheReason() throws Exception {
+        String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("name", "One", "channel", "whatsapp", "template", "kit_invite", "message", "Hi",
+                        "people", List.of(Map.of("name", "A", "phone", "9845055555"))))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(res).path("campaign").path("id").asLong();
+        waitUntilFinished(id);
+        String requestId = messages.findAll().get(0).getProviderId();
+        webhook("{\"direction\":\"outbound\",\"status\":\"Failed\",\"request_id\":\"" + requestId + "\",\"failure_reason\":\"User is not on WhatsApp\"}");
+        mvc.perform(get("/api/admin/campaigns/" + id + "/recipients").with(admin()).param("status", "failed"))
+                .andExpect(jsonPath("$.items[0].error").value("User is not on WhatsApp"));
+    }
+
+    @Test
+    void webhookNeedsTheSecretToken() throws Exception {
+        String body = "{\"direction\":\"inbound\",\"customer_number\":\"919845066666\",\"uuid\":\"x\",\"text\":\"spoof\"}";
+        mvc.perform(post("/api/webhooks/msg91-whatsapp").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/webhooks/msg91-whatsapp").param("token", "wrong").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        assertThat(messages.count()).isZero();
+        // Junk is answered 200 (so MSG91 doesn't retry forever) and ignored
+        webhook("not json");
+        assertThat(messages.count()).isZero();
+    }
+
+    @Test
+    void replyOutsideTheTwentyFourHourWindowExplainsWhy() throws Exception {
+        mvc.perform(post("/api/admin/inbox/reply").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("channel", "whatsapp", "contact", "919845019999", "text", "Hello"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("24-hour")))
+                .andExpect(jsonPath("$.message", containsString("window closed")));
+        // Kept in the conversation as failed, so it isn't silently lost
+        assertThat(thread("919845019999").get(0).path("status").asText()).isEqualTo("failed");
     }
 }

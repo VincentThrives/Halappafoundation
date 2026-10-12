@@ -52,14 +52,17 @@ No password is ever generated and none is in the code: without `SEED_ADMIN_PASSW
 | Channel | Sending | Receiving | Server settings |
 |---|---|---|---|
 | WhatsApp (Meta) | Without keys: manual links ("Open next"). With Meta Cloud API: automatic, ~15/second | Meta webhook → `https://<site>/api/webhooks/whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` |
-| WhatsApp (MSG91) | Automatic through MSG91, **approved templates only** (`{{1}}` = name, `{{2}}` = voucher). Inbox replies open as wa.me links | Not read by the site (see MSG91's WhatsApp inbox) | `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` (same as SMS), `MSG91_WHATSAPP_NUMBER`, optional `MSG91_WHATSAPP_NAMESPACE` |
+| WhatsApp (MSG91) | Bulk: automatic through MSG91 with an **approved template** (`{{1}}` = name, `{{2}}` = voucher). Inbox replies: free text from the website (WhatsApp allows it within 24 h of the person's last message) | MSG91 → WhatsApp → Webhook (Inbound **and** Outbound) → `https://<backend>/api/webhooks/msg91-whatsapp?token=MSG91_WEBHOOK_TOKEN`: replies land in the Inbox, sent/delivered/read/failed update each message | `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` (same as SMS), `MSG91_WHATSAPP_NUMBER`, `MSG91_WEBHOOK_TOKEN`, optional `MSG91_WHATSAPP_NAMESPACE` |
 | Email | SMTP | IMAP check every 2 minutes | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_IMAP_HOST` |
 | SMS | MSG91 Flow API, 100 per request | Provider's inbound webhook → `/api/webhooks/sms?token=…` | `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY`, `MSG91_FLOW_ID`, `SMS_INBOUND_TOKEN` |
 
 Important:
 - **Using MSG91 for WhatsApp**: connect your WhatsApp number in MSG91 → WhatsApp, create the invitation template there and
   wait for approval, then set `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` and `MSG91_WHATSAPP_NUMBER` (e.g. `919900123406`) and restart.
-  In **Bulk messages** type the template name exactly as in MSG91. Free-text sends are refused (MSG91 sends templates only).
+  In **Bulk messages** type the template name exactly as in MSG91 (bulk sends without a template are refused).
+  For replies and delivery ticks, set `MSG91_WEBHOOK_TOKEN` to a long random value and paste
+  `https://<backend>/api/webhooks/msg91-whatsapp?token=<that value>` into MSG91 → WhatsApp → Webhook for Inbound and Outbound.
+  Both MSG91 and the website can be used to reply: messages sent from MSG91's own panel are not shown in the site's Inbox.
 - **WhatsApp invitations need an approved template** in Meta (free text only reaches people who messaged in the last 24 h).
   In the template, `{{1}}` = name and `{{2}}` = voucher. To send 5000 in a day the number needs Meta's 10K messaging tier.
   A number on the Cloud API can't be used in the normal WhatsApp app at the same time.
@@ -71,7 +74,7 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 189 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 194 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
@@ -106,7 +109,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `MAIL_*`, `MAIL_IMAP_*` | Sending and reading email (see table above) |
 | `WHATSAPP_PROVIDER` | `meta` (default) or `msg91` |
 | `WHATSAPP_*` | WhatsApp Cloud API + webhook (Meta) |
-| `MSG91_WHATSAPP_NUMBER`, `MSG91_WHATSAPP_NAMESPACE` | WhatsApp through MSG91 (uses `MSG91_AUTH_KEY`) |
+| `MSG91_WHATSAPP_NUMBER`, `MSG91_WHATSAPP_NAMESPACE`, `MSG91_WEBHOOK_TOKEN` | WhatsApp through MSG91 (uses `MSG91_AUTH_KEY`); the token protects the reply/status webhook |
 | `SMS_PROVIDER`, `MSG91_*`, `SMS_INBOUND_TOKEN` | SMS |
 | `CAMPAIGN_MAX_RECIPIENTS` | Default 5000 per send |
 
