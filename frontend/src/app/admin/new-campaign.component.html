@@ -112,29 +112,69 @@
   @if (channel === 'email') {
     <div class="field"><label>Email subject</label><input class="input" [(ngModel)]="subject" maxlength="300"></div>
   }
-  <div class="field">
-    <label>Message <span class="muted">— {{ nameToken }} and {{ voucherToken }} are filled in for each person</span></label>
-    <textarea class="input" rows="8" [(ngModel)]="message" maxlength="4000"></textarea>
-    <span class="muted">{{ message.length }} / 4000</span>
-  </div>
-  @if (!voucherOn && message.includes(voucherToken)) { <p class="warn">The message has {{ voucherToken }} but vouchers are switched off — it will be left blank.</p> }
   @if (channel === 'whatsapp' && ch()?.whatsappApi) {
-    <div class="grid2">
-      <div class="field"><label>Approved WhatsApp template name
-        @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(required: MSG91 sends approved templates only; type the name exactly as in MSG91)</span> }
-        @else { <span class="muted">(needed for people who haven't messaged you in 24h)</span> }</label>
-        <input class="input" [(ngModel)]="templateName" placeholder="kit_invite"></div>
-      <div class="field"><label>Template language</label>
-        <select class="input" [(ngModel)]="templateLang"><option value="en">English (en)</option><option value="kn">Kannada (kn)</option></select></div>
+    <div class="tpl stack">
+      @if (templates().length) {
+        <div class="field"><label>WhatsApp template
+          @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(required for sending through MSG91)</span> }
+          @else { <span class="muted">(needed for people who haven't messaged you in 24h)</span> }</label>
+          <select class="input" [ngModel]="templateKey()" (ngModelChange)="chooseTemplate($event)" [disabled]="manual">
+            <option value="">— Choose an approved template —</option>
+            @for (t of templates(); track t.name + '|' + t.language) {
+              <option [value]="t.name + '|' + t.language">{{ t.name }} · {{ t.language }}</option>
+            }
+          </select>
+        </div>
+      } @else {
+        <div class="grid2">
+          <div class="field"><label>Approved WhatsApp template name
+            @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(required: exactly as in MSG91)</span> }
+            @else { <span class="muted">(needed for people who haven't messaged you in 24h)</span> }</label>
+            <input class="input" [(ngModel)]="templateName" placeholder="kit_invite" [disabled]="manual"></div>
+          <div class="field"><label>Template language</label>
+            <select class="input" [(ngModel)]="templateLang" [disabled]="manual"><option value="en">English (en)</option><option value="kn">Kannada (kn)</option></select></div>
+        </div>
+        @if (templatesLoaded() && templatesNote()) { <p class="muted">{{ templatesNote() }}</p> }
+      }
+
+      @if (templateMode()) {
+        <div class="field">
+          <label>Template text <span class="muted">— approved by WhatsApp, so the wording itself can't be changed here{{ templates().length ? '' : '; paste it from MSG91 to see the full message' }}</span></label>
+          <textarea class="input tpl-body" rows="5" [(ngModel)]="templateBody" (ngModelChange)="syncParams()" maxlength="4000"
+                    [readonly]="templates().length > 0 && !!templateBody" placeholder="Namaskara {{ tpl1 }}, … voucher {{ tpl2 }}"></textarea>
+        </div>
+        @if (varCount()) {
+          <div class="vars">
+            <b>Fill in the blanks</b>
+            @for (i of varSlots(); track i) {
+              <div class="var">
+                <span class="tok">{{ tplVar(i) }}</span>
+                <input class="input" [ngModel]="templateParams[i]" (ngModelChange)="setParam(i, $event)" maxlength="500"
+                       placeholder="Type the text, e.g. Sunday 10 AM, Madhugiri">
+                <button type="button" class="chipbtn" [class.on]="templateParams[i] === nameToken" (click)="setParam(i, nameToken)">Name</button>
+                @if (voucherOn) { <button type="button" class="chipbtn" [class.on]="templateParams[i] === voucherToken" (click)="setParam(i, voucherToken)">Voucher</button> }
+              </div>
+            }
+            <p class="muted">{{ nameToken }} and {{ voucherToken }} change for each person; any other text (date, venue…) is the same for everyone.</p>
+          </div>
+        }
+      }
+      <label class="opt"><input type="checkbox" [(ngModel)]="manual"> Send by hand with WhatsApp links instead (free text, no template)</label>
     </div>
-    <p class="muted">In the template, {{ tpl1 }} = name and {{ tpl2 }} = voucher number.</p>
-    <label class="opt"><input type="checkbox" [(ngModel)]="manual"> Send by hand with WhatsApp links instead</label>
+  }
+  @if (!templateMode()) {
+    <div class="field">
+      <label>Message <span class="muted">— {{ nameToken }} and {{ voucherToken }} are filled in for each person</span></label>
+      <textarea class="input" rows="8" [(ngModel)]="message" maxlength="4000"></textarea>
+      <span class="muted">{{ message.length }} / 4000</span>
+    </div>
+    @if (!voucherOn && message.includes(voucherToken)) { <p class="warn">The message has {{ voucherToken }} but vouchers are switched off — it will be left blank.</p> }
   }
   @if (channel === 'sms') {
     <p class="note">SMS in India must match your DLT-approved template in MSG91 (variables <b>##name##</b> and <b>##voucher##</b>). The text here is kept for your records.</p>
   }
   <div class="preview-msg">
-    <small>Preview for the first person</small>
+    <small>{{ templateMode() ? 'Exactly what the first person receives' : 'Preview for the first person' }}</small>
     @if (channel === 'email') { <div class="subj">{{ previewSubject() }}</div> }
     <div class="bubble" [class.mail]="channel === 'email'">{{ preview() }}</div>
   </div>

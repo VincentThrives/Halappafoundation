@@ -59,7 +59,9 @@ No password is ever generated and none is in the code: without `SEED_ADMIN_PASSW
 Important:
 - **Using MSG91 for WhatsApp**: connect your WhatsApp number in MSG91 → WhatsApp, create the invitation template there and
   wait for approval, then set `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` and `MSG91_WHATSAPP_NUMBER` (e.g. `919900123406`) and restart.
-  In **Bulk messages** type the template name exactly as in MSG91 (bulk sends without a template are refused).
+  In **Bulk messages** pick the template from the list (loaded from MSG91; if it can't be loaded, type the name and paste its text).
+  The full approved text is shown; fill each blank with the person's name, their voucher or your own text (date, venue…),
+  and the preview shows exactly what the first person receives. Bulk sends without a template are refused.
   For replies and delivery ticks, set `MSG91_WEBHOOK_TOKEN` to a long random value and paste
   `https://<backend>/api/webhooks/msg91-whatsapp?token=<that value>` into MSG91 → WhatsApp → Webhook for Inbound and Outbound.
   Both MSG91 and the website can be used to reply: messages sent from MSG91's own panel are not shown in the site's Inbox.
@@ -74,11 +76,11 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 194 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 197 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
-# Frontend: 188 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
+# Frontend: 193 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
 cd frontend && npm run test:ci
 ```
 

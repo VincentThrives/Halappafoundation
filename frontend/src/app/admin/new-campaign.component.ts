@@ -5,7 +5,7 @@ import { AdminApi, EnquiryQuery, downloadBlob } from './admin-api.service';
 import { IconComponent } from '../core/icon.component';
 import { errMsg } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
-import { Channels, ImportResult } from '../core/models';
+import { Channels, ImportResult, WaTemplate } from '../core/models';
 
 type ChannelKey = 'whatsapp' | 'email' | 'sms';
 type Source = 'excel' | 'given' | 'range' | 'all' | 'pasted';
@@ -70,13 +70,19 @@ export class NewCampaignComponent {
   message = DEFAULT_INVITE;
   templateName = '';
   templateLang = 'en';
+  /** The approved template's text (picked from the list, or pasted) and what fills its {{1}}, {{2}}… */
+  templateBody = '';
+  templateParams: string[] = [];
+  readonly templates = signal<WaTemplate[]>([]);
+  readonly templatesNote = signal('');
+  readonly templatesLoaded = signal(false);
   manual = false;
 
   readonly busy = signal(false);
   readonly error = signal('');
 
   constructor() {
-    this.api.channels().subscribe(c => this.ch.set(c));
+    this.api.channels().subscribe(c => { this.ch.set(c); if (c.whatsappApi) this.loadTemplates(); });
     if (this.given?.ids) this.enquiryCount.set(this.given.ids.length);
     else if (this.given?.filter) this.api.enquiries(this.given.filter, 0, 1).subscribe(p => this.enquiryCount.set(p.total));
   }
@@ -93,6 +99,53 @@ export class NewCampaignComponent {
     return (c === 'email' ? s.email : s.sms) ? 'Connected' : 'Not connected';
   }
   pickChannel(c: ChannelKey) { this.channel = c; this.error.set(''); }
+
+  // ---------- WhatsApp template ----------
+  loadTemplates() {
+    this.api.whatsappTemplates().subscribe({
+      next: r => {
+        this.templates.set(r.templates ?? []);
+        this.templatesNote.set(r.available ? '' : r.message ?? '');
+        this.templatesLoaded.set(true);
+      },
+      error: () => {
+        this.templates.set([]);
+        this.templatesNote.set("Couldn't load templates; type the name and paste the text.");
+        this.templatesLoaded.set(true);
+      },
+    });
+  }
+
+  /** Picked from the list: fills name, language and text, and suggests name/voucher for {{1}}/{{2}}. */
+  chooseTemplate(key: string) {
+    const t = this.templates().find(x => x.name + '|' + x.language === key);
+    if (!t) { this.templateName = ''; this.templateBody = ''; this.templateParams = []; return; }
+    this.templateName = t.name;
+    this.templateLang = t.language || 'en';
+    this.templateBody = t.body ?? '';
+    this.templateParams = [];
+    this.syncParams();
+  }
+  templateKey() { return this.templateName ? this.templateName + '|' + this.templateLang : ''; }
+
+  /** How many {{n}} the template text has. */
+  varCount(): number { return templateVariables(this.templateBody); }
+  varSlots(): number[] { return Array.from({ length: this.varCount() }, (_, i) => i); }
+
+  /** One value per {{n}}: {{1}} = name and {{2}} = voucher by default, the rest typed by the admin. */
+  syncParams() {
+    const n = this.varCount();
+    const p = this.templateParams.slice(0, n);
+    while (p.length < n) p.push(p.length === 0 ? '{name}' : p.length === 1 && this.voucherOn ? '{voucher}' : '');
+    this.templateParams = p;
+  }
+  setParam(i: number, v: string) { const p = [...this.templateParams]; p[i] = v; this.templateParams = p; }
+  tplVar(i: number) { return '{{' + (i + 1) + '}}'; }
+
+  /** WhatsApp through the API with a template: the wording is fixed by WhatsApp, only the {{n}} values change. */
+  templateMode(): boolean {
+    return this.channel === 'whatsapp' && !!this.ch()?.whatsappApi && !this.manual && !!this.templateName.trim();
+  }
 
   // ---------- recipients ----------
   pick(e: Event) { const f = (e.target as HTMLInputElement).files?.[0]; if (f) this.upload(f); }
@@ -153,7 +206,14 @@ export class NewCampaignComponent {
     return (this.source === 'excel' ? this.imported()?.rows[0]?.name : '') || 'Ramesh';
   }
 
-  preview() { return personalise(this.message, this.firstName(), this.sampleVoucher()); }
+  preview() {
+    if (this.templateMode() && this.templateBody.trim()) {
+      const values = this.templateParams.map(v => personalise(v, this.firstName(), this.sampleVoucher()) || '…');
+      return fillTemplate(this.templateBody, values);
+    }
+    if (this.templateMode()) return '[template ' + this.templateName.trim() + '] — paste its text above to see the full message';
+    return personalise(this.message, this.firstName(), this.sampleVoucher());
+  }
   previewSubject() { return personalise(this.subject, this.firstName(), this.sampleVoucher()); }
 
   // ---------- send ----------
@@ -161,6 +221,8 @@ export class NewCampaignComponent {
     const b: Record<string, unknown> = {
       name: this.name, channel: this.channel, subject: this.subject, message: this.message,
       template: this.channel === 'whatsapp' && !this.manual ? this.templateName : '', templateLang: this.templateLang,
+      templateBody: this.templateMode() ? this.templateBody : '',
+      templateParams: this.templateMode() && this.templateBody.trim() ? this.templateParams : [],
       manual: this.manual, pasted: this.pasted,
       voucher: this.voucherOn
         ? { mode: this.voucherMode, prefix: this.prefix, start: this.start, digits: this.digits, fixed: this.fixed }
@@ -182,6 +244,10 @@ export class NewCampaignComponent {
     if (this.source === 'excel' && !this.imported()) { this.error.set('Import an Excel file first.'); return; }
     if (this.source === 'range' && this.rangeFrom && this.rangeTo && this.rangeFrom > this.rangeTo) { this.error.set('From date must be on or before To date.'); return; }
     if (this.source === 'pasted' && !this.pasted.trim()) { this.error.set('Paste at least one number or email.'); return; }
+    if (this.templateMode() && this.templateBody.trim()) {
+      const missing = this.templateParams.findIndex(v => !v.trim());
+      if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }
+    }
     if (this.estimate() > this.max()) { this.error.set(`That's more than ${this.max()} people. Split the list into smaller sends.`); return; }
     const via = { whatsapp: 'WhatsApp', email: 'email', sms: 'SMS' }[this.channel];
     const ok = await this.confirmer.ask({
@@ -195,6 +261,20 @@ export class NewCampaignComponent {
       error: e => { this.busy.set(false); this.error.set(errMsg(e)); },
     });
   }
+}
+
+/** Highest {{n}} in a WhatsApp template text. */
+export function templateVariables(body: string): number {
+  let max = 0;
+  for (const m of (body ?? '').matchAll(/\{\{\s*(\d+)\s*\}\}/g)) max = Math.max(max, Number(m[1]));
+  return max;
+}
+
+/** Puts the values into {{1}}, {{2}}… (same as the server). */
+export function fillTemplate(body: string, values: string[]): string {
+  let out = body ?? '';
+  values.forEach((v, i) => { out = out.replaceAll('{{' + (i + 1) + '}}', v); });
+  return out;
 }
 
 /** Same rules as the server: fills {name}/{voucher} and tidies the gap a blank name leaves. */

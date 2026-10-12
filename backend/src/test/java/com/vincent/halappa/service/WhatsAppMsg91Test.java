@@ -47,7 +47,7 @@ class WhatsAppMsg91Test {
     void stop() { server.stop(0); }
 
     private WhatsAppService msg91(String key, String number, String namespace) {
-        return new WhatsAppService("msg91", "", "", "v21.0", "https://graph.facebook.com", key, number, namespace, base);
+        return new WhatsAppService("msg91", "", "", "v21.0", "https://graph.facebook.com", key, number, namespace, base, base);
     }
 
     @Test
@@ -64,7 +64,7 @@ class WhatsAppMsg91Test {
         assertThat(meta.provider()).isEqualTo("meta");
         assertThat(meta.bulkNeedsTemplate()).isFalse();
         // Unknown provider names fall back to Meta
-        assertThat(new WhatsAppService("other", "t", "1", "v21.0", base, "K", "9199", "", base).provider()).isEqualTo("meta");
+        assertThat(new WhatsAppService("other", "t", "1", "v21.0", base, "K", "9199", "", base, base).provider()).isEqualTo("meta");
     }
 
     @Test

@@ -35,6 +35,7 @@ public class WhatsAppService {
     private final String msg91Number;
     private final String msg91Namespace;
     private final RestClient msg91;
+    private final RestClient msg91Control;
 
     @Autowired
     public WhatsAppService(@Value("${whatsapp.provider:meta}") String provider,
@@ -45,7 +46,8 @@ public class WhatsAppService {
                            @Value("${sms.msg91.auth-key:}") String msg91AuthKey,
                            @Value("${whatsapp.msg91.integrated-number:}") String msg91Number,
                            @Value("${whatsapp.msg91.namespace:}") String msg91Namespace,
-                           @Value("${whatsapp.msg91.base-url:https://api.msg91.com}") String msg91BaseUrl) {
+                           @Value("${whatsapp.msg91.base-url:https://api.msg91.com}") String msg91BaseUrl,
+                           @Value("${whatsapp.msg91.control-url:https://control.msg91.com}") String msg91ControlUrl) {
         this.provider = "msg91".equalsIgnoreCase(provider == null ? "" : provider.trim()) ? "msg91" : "meta";
         this.token = token;
         this.phoneNumberId = phoneNumberId;
@@ -55,11 +57,12 @@ public class WhatsAppService {
         this.msg91Number = msg91Number == null ? "" : Contacts.phone(msg91Number) == null ? msg91Number.trim() : Contacts.phone(msg91Number);
         this.msg91Namespace = msg91Namespace == null ? "" : msg91Namespace.trim();
         this.msg91 = RestClient.builder().baseUrl(msg91BaseUrl).build();
+        this.msg91Control = RestClient.builder().baseUrl(msg91ControlUrl).build();
     }
 
     /** Meta-only setup (kept for callers and tests that don't use MSG91). */
     public WhatsAppService(String token, String phoneNumberId, String apiVersion, String baseUrl) {
-        this("meta", token, phoneNumberId, apiVersion, baseUrl, "", "", "", "https://api.msg91.com");
+        this("meta", token, phoneNumberId, apiVersion, baseUrl, "", "", "", "https://api.msg91.com", "https://control.msg91.com");
     }
 
     /** "meta" or "msg91". */
@@ -76,6 +79,73 @@ public class WhatsAppService {
     public boolean bulkNeedsTemplate() { return isMsg91(); }
 
     private boolean isMsg91() { return "msg91".equals(provider); }
+
+    /** An approved WhatsApp template: its full text with {{1}}, {{2}}… and how many of those it has. */
+    public record Template(String name, String language, String status, String body, int variables) {}
+
+    /**
+     * Approved templates for the connected number, read from MSG91 (MSG91 → WhatsApp → Templates).
+     * Returns null when the provider can't list them (Meta here), so the admin types the name and text instead.
+     */
+    public List<Template> templates() {
+        if (!isMsg91() || !apiEnabled()) return null;
+        JsonNode res;
+        try {
+            res = msg91Control.get()
+                    .uri("/api/v5/whatsapp/get-template-client/{number}", msg91Number)
+                    .header("authkey", msg91AuthKey)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException("MSG91: " + cap(e.getResponseBodyAsString()));
+        }
+        if (res == null) return List.of();
+        if (res.path("hasError").asBoolean(false) || "fail".equalsIgnoreCase(res.path("status").asText()))
+            throw new IllegalStateException("MSG91: " + cap(firstText(res, "errors", "message")));
+        JsonNode list = res.isArray() ? res : res.path("data").isArray() ? res.path("data")
+                : res.path("data").path("data").isArray() ? res.path("data").path("data") : res.path("templates");
+        java.util.List<Template> out = new java.util.ArrayList<>();
+        for (JsonNode t : list) {
+            String name = text(t, "name", "template_name");
+            if (name == null) continue;
+            JsonNode langs = t.path("languages").isArray() ? t.path("languages") : new com.fasterxml.jackson.databind.ObjectMapper().createArrayNode().add(t);
+            for (JsonNode l : langs) {
+                String status = text(l, "status", "template_status");
+                if (status == null) status = text(t, "status", "template_status");
+                if (status != null && !status.equalsIgnoreCase("approved")) continue;
+                String lang = text(l, "language", "code", "lang");
+                if (lang == null || lang.startsWith("[")) lang = text(t, "language", "template_language");
+                String body = bodyText(l);
+                if (body == null) body = bodyText(t);
+                out.add(new Template(name, lang == null ? "en" : lang, status == null ? "APPROVED" : status.toUpperCase(),
+                        body, Contacts.templateVariables(body)));
+            }
+        }
+        return out;
+    }
+
+    /** The BODY text of a template node (components/code may be an array or a JSON string). */
+    private static String bodyText(JsonNode n) {
+        for (String key : new String[] { "code", "components" }) {
+            JsonNode c = n.path(key);
+            if (c.isTextual() && c.asText().trim().startsWith("[")) {
+                try { c = new com.fasterxml.jackson.databind.ObjectMapper().readTree(c.asText()); } catch (Exception ignored) { }
+            }
+            if (c.isArray()) {
+                for (JsonNode part : c) if ("BODY".equalsIgnoreCase(part.path("type").asText())) return part.path("text").asText(null);
+            }
+        }
+        return text(n, "body", "text", "template_body");
+    }
+
+    private static String text(JsonNode n, String... keys) {
+        for (String k : keys) {
+            JsonNode v = n.path(k);
+            if (v.isValueNode() && !v.asText().isBlank()) return v.asText();
+        }
+        return null;
+    }
 
     /** Kept for callers that only need number clean-up. */
     public static String normalize(String phone) { return Contacts.phone(phone); }

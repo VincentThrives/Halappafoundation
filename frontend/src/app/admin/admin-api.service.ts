@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { map } from 'rxjs';
 import { toParams } from '../core/api.service';
-import { CampaignView, Channels, Enquiry, GalleryItem, ImportResult, InboxThread, Message, Page, Post, Settings, TimelineEntry } from '../core/models';
+import { CampaignView, Channels, Enquiry, GalleryItem, ImportResult, InboxThread, Message, Page, Post, Settings, TimelineEntry, WaTemplates } from '../core/models';
 
 export interface EnquiryQuery {
   q?: string; status?: string; channel?: string; type?: string; from?: string; to?: string;
@@ -39,6 +39,7 @@ export class AdminApi {
     fd.append('file', file);
     return this.http.post<ImportResult>('/api/admin/campaigns/import', fd);
   }
+  whatsappTemplates() { return this.http.get<WaTemplates>('/api/admin/campaigns/whatsapp-templates'); }
   recipientsTemplate() { return this.blob('/api/admin/campaigns/template', {}); }
   campaigns() { return this.http.get<CampaignView[]>('/api/admin/campaigns'); }
   campaign(id: number) { return this.http.get<CampaignView>(`/api/admin/campaigns/${id}`); }

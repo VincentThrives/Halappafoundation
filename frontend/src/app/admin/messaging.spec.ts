@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { AdminApi } from './admin-api.service';
-import { DEFAULT_INVITE, NewCampaignComponent, personalise } from './new-campaign.component';
+import { DEFAULT_INVITE, NewCampaignComponent, fillTemplate, personalise, templateVariables } from './new-campaign.component';
 import { CampaignsComponent } from './campaigns.component';
 import { CampaignDetailComponent } from './campaign-detail.component';
 import { InboxComponent } from './inbox.component';
@@ -61,8 +61,14 @@ function stub(channels: Channels = NONE) {
     reply: jasmine.createSpy('reply').and.returnValue(of({ message: msg({ id: 12, status: 'sent', body: 'Thanks' }) })),
     findVoucher: jasmine.createSpy('findVoucher').and.returnValue(of([msg({ status: 'sent' })])),
     attend: jasmine.createSpy('attend').and.returnValue(of(msg({ status: 'sent', attendedAt: '2026-10-12T10:05:00' }))),
+    whatsappTemplates: jasmine.createSpy('whatsappTemplates').and.returnValue(of({ available: false, templates: [], message: 'Template list isn\'t available' })),
   };
 }
+
+const KIT_TEMPLATE = {
+  name: 'kit_invite', language: 'kn', status: 'APPROVED', variables: 3,
+  body: 'Namaskara {{1}}, you are invited to the kit distribution on {{3}}. Your entrance voucher: {{2}}',
+};
 
 function configure(api: ReturnType<typeof stub>, params: Record<string, string> = {}) {
   TestBed.configureTestingModule({
@@ -85,6 +91,15 @@ describe('personalise()', () => {
 });
 
 // =====================================================================
+describe('WhatsApp template helpers', () => {
+  it('counts {{n}} and fills them like the server', () => {
+    expect(templateVariables('Hi {{1}}, voucher {{2}}, on {{ 3 }}')).toBe(3);
+    expect(templateVariables('No blanks')).toBe(0);
+    expect(fillTemplate('Hi {{1}}, voucher {{2}}', ['Asha', 'KIT-1'])).toBe('Hi Asha, voucher KIT-1');
+    expect(fillTemplate('Hi {{1}} and {{1}}', ['A'])).toBe('Hi A and A');
+  });
+});
+
 describe('New bulk message', () => {
   let api: ReturnType<typeof stub>;
   let f: ComponentFixture<NewCampaignComponent>;
@@ -230,6 +245,83 @@ describe('New bulk message', () => {
     c.manual = true;
     await c.send();
     expect(api.createCampaign.calls.mostRecent().args[0].template).toBe('');
+  });
+
+  it('picking an approved template shows the complete message for the first person', () => {
+    history.replaceState({}, '');
+    api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [KIT_TEMPLATE] }));
+    configure(api);
+    f = TestBed.createComponent(NewCampaignComponent);
+    c = f.componentInstance;
+    f.detectChanges();
+    c.upload(new File(['x'], 'list.xlsx'));
+
+    const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
+    expect([...select.options].map(o => o.textContent!.trim())).toContain('kit_invite · kn');
+    c.chooseTemplate('kit_invite|kn');
+    f.detectChanges();
+
+    expect(c.templateName).toBe('kit_invite');
+    expect(c.templateLang).toBe('kn');
+    expect(c.templateParams).toEqual(['{name}', '{voucher}', '']); // {{3}} is for the admin to type
+    // The free-text box is replaced by the fixed (read-only) template text and the blanks
+    expect(f.nativeElement.querySelector('.tpl-body').readOnly).toBeTrue();
+    expect(f.nativeElement.querySelectorAll('.var').length).toBe(3);
+    expect(f.nativeElement.textContent).toContain('Exactly what the first person receives');
+
+    c.setParam(2, 'Sunday 10 AM, Madhugiri');
+    f.detectChanges();
+    expect(c.preview()).toBe('Namaskara Ramesh, you are invited to the kit distribution on Sunday 10 AM, Madhugiri. Your entrance voucher: HV-1');
+    expect(f.nativeElement.querySelector('.bubble').textContent).toContain('Sunday 10 AM, Madhugiri');
+  });
+
+  it('blanks can be changed (name, voucher or typed text) and are sent with the template', async () => {
+    create({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [KIT_TEMPLATE] }));
+    c.loadTemplates();
+    c.upload(new File(['x'], 'list.xlsx'));
+    c.chooseTemplate('kit_invite|kn');
+
+    // an empty blank stops the send with a clear message
+    await c.send();
+    expect(c.error()).toBe('Fill in {{3}} of the template.');
+    expect(api.createCampaign).not.toHaveBeenCalled();
+
+    c.setParam(0, 'Sri {name}');
+    c.setParam(2, '20 Oct');
+    expect(c.preview()).toContain('Namaskara Sri Ramesh');
+    await c.send();
+    expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+      template: 'kit_invite', templateLang: 'kn', templateBody: KIT_TEMPLATE.body,
+      templateParams: ['Sri {name}', '{voucher}', '20 Oct'],
+    }));
+  });
+
+  it('without a template list: type the name, paste the text, and still see the full message', () => {
+    create(ALL);
+    expect(c.templates().length).toBe(0);
+    c.templateName = 'kit_invite';
+    f.detectChanges();
+    expect(c.preview()).toContain('paste its text');
+    const box: HTMLTextAreaElement = f.nativeElement.querySelector('.tpl-body');
+    expect(box.readOnly).toBeFalse();
+    c.templateBody = 'Hello {{1}}, voucher {{2}}';
+    c.syncParams();
+    f.detectChanges();
+    expect(c.preview()).toBe(`Hello Ramesh, voucher KIT-${new Date().getFullYear()}-0001`);
+    expect(f.nativeElement.textContent).toContain(`Template list isn't available`);
+  });
+
+  it('switching to manual links hides the template and brings back the free-text message', () => {
+    create(ALL);
+    c.templateName = 'kit_invite';
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl-body')).toBeTruthy();
+    c.manual = true;
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl-body')).toBeNull();
+    expect(c.preview()).toContain('Namaskara Ramesh');
   });
 
   it('email adds a personalised subject', async () => {

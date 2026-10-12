@@ -27,6 +27,10 @@ public class Campaign implements Sequenced {
     private String message;
     private String template;
     private String templateLang;
+    /** The approved template's text with {{1}}, {{2}}…, kept so the log shows what each person received. */
+    private String templateBody;
+    /** What fills {{1}}, {{2}}… for everyone: may contain {name} and {voucher}. Null = name, voucher. */
+    private java.util.List<String> templateParams;
 
     /** none | auto | excel | fixed */
     private String voucherMode = "none";

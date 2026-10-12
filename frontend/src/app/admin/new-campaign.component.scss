@@ -29,3 +29,11 @@
 @media (min-width: 900px) { .send-bar { position: sticky; bottom: 10px; } }
 .err { color: var(--m-500); margin: 0; }
 @media (max-width: 700px) { .ch-grid { grid-template-columns: 1fr; } }
+.tpl { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--cream); }
+.tpl-body[readonly] { background: #f6f3ea; color: var(--ink); }
+.vars { display: grid; gap: 8px; }
+.var { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.var .input { flex: 1 1 220px; }
+.tok { font-family: monospace; font-weight: 700; color: var(--m-700); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.chipbtn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: .85rem; }
+.chipbtn.on { background: var(--m-700); color: #fff; border-color: var(--m-700); }

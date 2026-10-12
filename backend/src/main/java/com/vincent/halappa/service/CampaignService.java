@@ -61,7 +61,11 @@ public class CampaignService {
             String templateLang,
             /** WhatsApp only: open wa.me links by hand instead of the Cloud API. */
             boolean manual,
-            Voucher voucher) {}
+            Voucher voucher,
+            /** WhatsApp template text with {{1}}, {{2}}… (for the log/preview; optional). */
+            String templateBody,
+            /** Values for {{1}}, {{2}}… in order; each may use {name} and {voucher}. Empty = name, voucher. */
+            List<String> templateParams) {}
 
     public record Stats(long total, long queued, long sent, long delivered, long read, long failed, long manual,
                         long cancelled, long attended) {}
@@ -82,6 +86,15 @@ public class CampaignService {
                 boolean hasTemplate = !isBlank(r.template()) && !manual;
                 if (!manual && whatsapp.bulkNeedsTemplate() && !hasTemplate)
                     throw ApiException.badRequest("WhatsApp through MSG91 needs an approved template: enter the template name exactly as in MSG91");
+                if (hasTemplate && !isBlank(r.templateBody())) {
+                    int needed = Contacts.templateVariables(r.templateBody());
+                    List<String> given = r.templateParams() == null ? List.of() : r.templateParams();
+                    int filled = given.isEmpty() ? 2 : given.size(); // nothing given = {{1}} name, {{2}} voucher
+                    for (int i = 0; i < needed; i++) {
+                        if (i >= filled || (!given.isEmpty() && isBlank(given.get(i))))
+                            throw ApiException.badRequest("Fill in {{" + (i + 1) + "}} of the template");
+                    }
+                }
                 if (isBlank(r.message()) && !hasTemplate) throw ApiException.badRequest("Write the message (or give an approved template name)");
             }
             case "email" -> {
@@ -109,6 +122,12 @@ public class CampaignService {
         c.setMessage(cap(r.message(), 4000));
         c.setTemplate(manual || isBlank(r.template()) ? null : r.template().trim());
         c.setTemplateLang(isBlank(r.templateLang()) ? "en" : r.templateLang().trim());
+        if (c.getTemplate() != null) {
+            c.setTemplateBody(isBlank(r.templateBody()) ? null : cap(r.templateBody().trim(), 4000));
+            List<String> tp = r.templateParams() == null ? List.of()
+                    : r.templateParams().stream().map(s -> cap(s == null ? "" : s.trim(), 500)).toList();
+            c.setTemplateParams(tp.isEmpty() ? null : tp);
+        }
         c.setVoucherMode(v.mode() == null ? "none" : v.mode());
         c.setVoucherInfo(voucherInfo(v, codes));
         c.setTotal(people.size());
@@ -131,7 +150,11 @@ public class CampaignService {
             m.setName(cap(p.name(), 150));
             m.setVoucher(voucher);
             m.setSubject(channel.equals("email") ? cap(Contacts.personalise(r.subject(), p.name(), voucher), 300) : null);
-            m.setBody(cap(Contacts.personalise(isBlank(r.message()) ? "[template " + c.getTemplate() + "]" : r.message(), p.name(), voucher), 4000));
+            String body = c.getTemplateBody() != null
+                    // exactly what WhatsApp shows this person: the template with their values in {{1}}, {{2}}…
+                    ? Contacts.fillTemplate(c.getTemplateBody(), Contacts.templateParams(c.getTemplateParams(), p.name(), voucher))
+                    : Contacts.personalise(isBlank(r.message()) ? "[template " + c.getTemplate() + "]" : r.message(), p.name(), voucher);
+            m.setBody(cap(body, 4000));
             m.setStatus(manual ? "manual" : "queued");
             batch.add(m);
         }

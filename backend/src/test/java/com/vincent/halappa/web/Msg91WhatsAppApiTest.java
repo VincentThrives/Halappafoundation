@@ -69,6 +69,21 @@ class Msg91WhatsAppApiTest {
                 ex.getResponseBody().write(out);
                 ex.close();
             });
+            // Template list (MSG91 "Get Templates"): one name with an approved and a rejected language, components as a JSON string.
+            SERVER.createContext("/api/v5/whatsapp/get-template-client/919900123406", ex -> {
+                String json = "{\"status\":\"success\",\"hasError\":false,\"data\":["
+                        + "{\"name\":\"kit_invite\",\"languages\":["
+                        + "{\"language\":\"kn\",\"status\":\"APPROVED\",\"code\":\"[{\\\"type\\\":\\\"BODY\\\",\\\"text\\\":\\\"Namaskara {{1}}, kit distribution on {{3}}. Voucher: {{2}}\\\"}]\"},"
+                        + "{\"language\":\"en\",\"status\":\"REJECTED\",\"code\":[{\"type\":\"BODY\",\"text\":\"rejected\"}]}]},"
+                        + "{\"name\":\"thank_you\",\"language\":\"en\",\"status\":\"APPROVED\",\"components\":[{\"type\":\"HEADER\",\"text\":\"Halappa Foundation\"},{\"type\":\"BODY\",\"text\":\"Thank you {{1}}\"}]},"
+                        + "{\"name\":\"pending_one\",\"language\":\"en\",\"status\":\"PENDING\",\"components\":[{\"type\":\"BODY\",\"text\":\"x\"}]}]}";
+                byte[] out = "AUTH".equals(ex.getRequestHeaders().getFirst("authkey")) ? json.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                        : "{\"status\":\"fail\",\"hasError\":true,\"errors\":\"Invalid authkey\"}".getBytes();
+                ex.getResponseHeaders().add("Content-Type", "application/json");
+                ex.sendResponseHeaders(200, out.length);
+                ex.getResponseBody().write(out);
+                ex.close();
+            });
             // Session (free-text) messages: only accepted within 24h; numbers ending 9999 have no open window.
             SERVER.createContext("/api/v5/whatsapp/whatsapp-outbound-message/", ex -> {
                 JsonNode body = M.readTree(ex.getRequestBody());
@@ -93,6 +108,7 @@ class Msg91WhatsAppApiTest {
     @DynamicPropertySource
     static void urls(DynamicPropertyRegistry r) {
         r.add("whatsapp.msg91.base-url", () -> "http://127.0.0.1:" + SERVER.getAddress().getPort());
+        r.add("whatsapp.msg91.control-url", () -> "http://127.0.0.1:" + SERVER.getAddress().getPort());
     }
 
     @AfterAll
@@ -204,6 +220,71 @@ class Msg91WhatsAppApiTest {
         mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(r)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.campaign.mode").value("manual"));
+        assertThat(CALLS).isEmpty();
+    }
+
+    // ---------- templates: pick, see the full text, fill in the blanks ----------
+
+    @Test
+    void listsOnlyApprovedTemplatesWithTheirFullText() throws Exception {
+        String res = mvc.perform(get("/api/admin/campaigns/whatsapp-templates").with(admin()))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        JsonNode r = json.readTree(res);
+        assertThat(r.path("available").asBoolean()).isTrue();
+        JsonNode list = r.path("templates");
+        assertThat(list).hasSize(2); // rejected and pending left out
+        assertThat(list.get(0).path("name").asText()).isEqualTo("kit_invite");
+        assertThat(list.get(0).path("language").asText()).isEqualTo("kn");
+        assertThat(list.get(0).path("body").asText()).isEqualTo("Namaskara {{1}}, kit distribution on {{3}}. Voucher: {{2}}");
+        assertThat(list.get(0).path("variables").asInt()).isEqualTo(3);
+        assertThat(list.get(1).path("name").asText()).isEqualTo("thank_you");
+        assertThat(list.get(1).path("body").asText()).isEqualTo("Thank you {{1}}"); // BODY, not the header
+        assertThat(list.get(1).path("variables").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    void editedBlanksAreSentToMsg91AndTheLogShowsTheExactText() throws Exception {
+        Map<String, Object> r = new HashMap<>();
+        r.put("name", "Kit with date");
+        r.put("channel", "whatsapp");
+        r.put("template", "kit_invite");
+        r.put("templateLang", "kn");
+        r.put("templateBody", "Namaskara {{1}}, kit distribution on {{3}}. Voucher: {{2}}");
+        r.put("templateParams", List.of("Sri {name}", "{voucher}", "Sunday 20 Oct, Madhugiri"));
+        r.put("voucher", Map.of("mode", "auto", "prefix", "KIT-", "start", 1, "digits", 4));
+        r.put("people", List.of(Map.of("name", "Ramesh", "phone", "9845012345"), Map.of("name", "", "phone", "9845012346")));
+        String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(r))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(res).path("campaign").path("id").asLong();
+        waitUntilFinished(id);
+
+        JsonNode first = CALLS.stream().filter(b -> b.path("payload").path("template").path("to_and_components").get(0)
+                .path("to").get(0).asText().equals("919845012345")).findFirst().orElseThrow();
+        JsonNode comp = first.path("payload").path("template").path("to_and_components").get(0).path("components");
+        assertThat(comp.path("body_1").path("value").asText()).isEqualTo("Sri Ramesh");
+        assertThat(comp.path("body_2").path("value").asText()).isEqualTo("KIT-0001");
+        assertThat(comp.path("body_3").path("value").asText()).isEqualTo("Sunday 20 Oct, Madhugiri");
+        // a person without a name gets "Friend" (WhatsApp refuses empty values)
+        JsonNode second = CALLS.stream().filter(b -> b.path("payload").path("template").path("to_and_components").get(0)
+                .path("to").get(0).asText().equals("919845012346")).findFirst().orElseThrow();
+        assertThat(second.path("payload").path("template").path("to_and_components").get(0).path("components").path("body_1").path("value").asText())
+                .isEqualTo("Sri Friend");
+
+        // The send's log shows exactly what each person received
+        mvc.perform(get("/api/admin/campaigns/" + id + "/recipients").with(admin()).param("q", "9845012345"))
+                .andExpect(jsonPath("$.items[0].body").value("Namaskara Sri Ramesh, kit distribution on Sunday 20 Oct, Madhugiri. Voucher: KIT-0001"));
+    }
+
+    @Test
+    void aBlankLeftEmptyIsRefusedBeforeAnythingIsSent() throws Exception {
+        Map<String, Object> r = Map.of("name", "Missing date", "channel", "whatsapp", "template", "kit_invite",
+                "templateBody", "Namaskara {{1}}, kit distribution on {{3}}. Voucher: {{2}}",
+                "templateParams", List.of("{name}", "{voucher}", " "),
+                "people", List.of(Map.of("name", "A", "phone", "9845012345")));
+        mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(r)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Fill in {{3}} of the template"));
+        assertThat(campaigns.count()).isZero();
         assertThat(CALLS).isEmpty();
     }
 

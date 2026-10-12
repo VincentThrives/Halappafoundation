@@ -47,6 +47,10 @@ export interface CampaignStats {
 
 export interface CampaignView { campaign: Campaign; stats: CampaignStats; }
 
+/** An approved WhatsApp template: full text with {{1}}, {{2}}… and how many there are. */
+export interface WaTemplate { name: string; language: string; status: string; body: string | null; variables: number; }
+export interface WaTemplates { available: boolean; templates: WaTemplate[]; message?: string; }
+
 export interface Channels {
   whatsappApi: boolean; whatsappInbound: boolean; email: boolean; emailInbound: boolean;
   /** "meta" or "msg91"; MSG91 sends approved templates only. */

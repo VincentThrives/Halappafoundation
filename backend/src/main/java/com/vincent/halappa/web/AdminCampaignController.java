@@ -52,6 +52,26 @@ public class AdminCampaignController {
         return m;
     }
 
+    /**
+     * Approved WhatsApp templates to pick from (MSG91). When they can't be listed, available=false and the admin
+     * types the template name and pastes its text instead.
+     */
+    @GetMapping("/whatsapp-templates")
+    public Map<String, Object> whatsappTemplates() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        try {
+            List<WhatsAppService.Template> list = whatsapp.templates();
+            m.put("available", list != null);
+            m.put("templates", list == null ? List.of() : list);
+            if (list == null) m.put("message", "Template list isn't available for this WhatsApp connection; type the name and paste the text.");
+        } catch (Exception e) {
+            m.put("available", false);
+            m.put("templates", List.of());
+            m.put("message", "Couldn't load templates: " + e.getMessage());
+        }
+        return m;
+    }
+
     @PostMapping(value = "/import", consumes = "multipart/form-data")
     public ImportService.Result importFile(@RequestParam("file") MultipartFile file) { return importer.read(file); }
 
