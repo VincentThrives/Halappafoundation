@@ -13,7 +13,7 @@
 .drop.over, .drop:hover { border-color: var(--g-500); background: var(--cream); }
 .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .drop .up { width: 36px; height: 36px; color: var(--g-600); transform: rotate(180deg); }
-.link { background: none; border: 0; color: var(--m-600); font-weight: 600; cursor: pointer; justify-self: start; display: inline-flex; gap: 6px; align-items: center; }
+.link { background: none; border: 0; color: var(--m-600); font-weight: 600; cursor: pointer; justify-self: start; display: inline-flex; gap: 6px; align-items: center; min-height: 40px; padding: 0; }
 .summary { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .problems { max-height: 180px; overflow: auto; font-size: .85rem; color: var(--m-600); }
 .preview { max-height: 300px; }

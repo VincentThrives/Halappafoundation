@@ -30,7 +30,7 @@ nav a.on { background: var(--gold-grad); color: var(--m-900); }
   .open .scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 140; }
   .topbar { padding: 10px 14px; background: var(--m-800); border-bottom: 0; gap: 10px; }
   .topbar .title { color: var(--g-300); font-size: .92rem; }
-  .burger { display: block; background: none; border: 0; color: var(--g-300); cursor: pointer; padding: 4px; }
+  .burger { display: grid; place-items: center; width: 40px; height: 40px; background: none; border: 0; color: var(--g-300); cursor: pointer; padding: 0; margin-left: -6px; }
   .who { color: rgba(255,255,255,.85); font-size: .82rem; }
   .signout { border-color: var(--g-400); background: transparent; color: var(--g-300); padding: 7px 12px; }
   .signout:hover { background: var(--g-400); color: var(--m-900); }

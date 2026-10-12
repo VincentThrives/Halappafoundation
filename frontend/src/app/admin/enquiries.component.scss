@@ -22,3 +22,11 @@
 .cnt { background: rgba(255,255,255,.2); border-radius: 999px; padding: 1px 9px; font-size: .8rem; }
 .cnt.dark { background: rgba(58,3,8,.15); }
 .err { color: var(--m-500); margin: 10px 0 0; }
+
+/* Phones: finger-sized controls; 16px text in the status dropdown so iPhones don't zoom in */
+@media (max-width: 700px) {
+  .st { font-size: 16px; padding: 8px 12px; }
+  .wa-mini { width: 36px; height: 36px; }
+  .wa-mini app-icon { width: 19px; height: 19px; }
+  td a[href^="tel:"], td a[href^="mailto:"] { display: inline-block; padding: 8px 0; }
+}
