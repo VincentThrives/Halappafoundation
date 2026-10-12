@@ -120,7 +120,9 @@
   @if (!voucherOn && message.includes(voucherToken)) { <p class="warn">The message has {{ voucherToken }} but vouchers are switched off — it will be left blank.</p> }
   @if (channel === 'whatsapp' && ch()?.whatsappApi) {
     <div class="grid2">
-      <div class="field"><label>Approved WhatsApp template name <span class="muted">(needed for people who haven't messaged you in 24h)</span></label>
+      <div class="field"><label>Approved WhatsApp template name
+        @if (ch()?.whatsappTemplatesOnly) { <span class="muted">(required: MSG91 sends approved templates only; type the name exactly as in MSG91)</span> }
+        @else { <span class="muted">(needed for people who haven't messaged you in 24h)</span> }</label>
         <input class="input" [(ngModel)]="templateName" placeholder="kit_invite"></div>
       <div class="field"><label>Template language</label>
         <select class="input" [(ngModel)]="templateLang"><option value="en">English (en)</option><option value="kn">Kannada (kn)</option></select></div>

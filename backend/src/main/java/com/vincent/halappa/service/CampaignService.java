@@ -80,6 +80,8 @@ public class CampaignService {
             case "whatsapp" -> {
                 manual = r.manual() || !whatsapp.apiEnabled();
                 boolean hasTemplate = !isBlank(r.template()) && !manual;
+                if (!manual && whatsapp.templatesOnly() && !hasTemplate)
+                    throw ApiException.badRequest("WhatsApp through MSG91 needs an approved template: enter the template name exactly as in MSG91");
                 if (isBlank(r.message()) && !hasTemplate) throw ApiException.badRequest("Write the message (or give an approved template name)");
             }
             case "email" -> {

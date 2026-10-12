@@ -6,7 +6,7 @@
 @if (ch(); as c) {
   <div class="conn">
     <div class="c"><app-icon name="whatsapp" /><b>WhatsApp</b>
-      <span class="chip" [class.resolved]="c.whatsappApi" [class.manual]="!c.whatsappApi">{{ c.whatsappApi ? 'Automatic' : 'Manual links' }}</span>
+      <span class="chip" [class.resolved]="c.whatsappApi" [class.manual]="!c.whatsappApi">{{ c.whatsappApi ? (c.whatsappProvider === 'msg91' ? 'Automatic via MSG91' : 'Automatic') : 'Manual links' }}</span>
       <span class="chip" [class.resolved]="c.whatsappInbound" [class.new]="!c.whatsappInbound">{{ c.whatsappInbound ? 'Receiving replies' : 'Replies not connected' }}</span></div>
     <div class="c"><app-icon name="mail" /><b>Email</b>
       <span class="chip" [class.resolved]="c.email" [class.new]="!c.email">{{ c.email ? 'Sending' : 'Not connected' }}</span>

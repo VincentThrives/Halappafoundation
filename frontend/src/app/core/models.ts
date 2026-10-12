@@ -49,6 +49,8 @@ export interface CampaignView { campaign: Campaign; stats: CampaignStats; }
 
 export interface Channels {
   whatsappApi: boolean; whatsappInbound: boolean; email: boolean; emailInbound: boolean;
+  /** "meta" or "msg91"; MSG91 sends approved templates only. */
+  whatsappProvider?: string; whatsappTemplatesOnly?: boolean;
   sms: boolean; smsInbound: boolean; maxRecipients: number;
 }
 

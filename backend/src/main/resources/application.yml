@@ -62,6 +62,14 @@ app:
 
 # WhatsApp Business Cloud API. Blank → bulk messages run in manual (wa.me) mode.
 whatsapp:
+  # meta = Meta Cloud API directly (WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID)
+  # msg91 = MSG91 WhatsApp (MSG91_AUTH_KEY below + MSG91_WHATSAPP_NUMBER); approved templates only
+  provider: ${WHATSAPP_PROVIDER:meta}
+  msg91:
+    # The WhatsApp number connected in MSG91 (with country code, e.g. 919900123406)
+    integrated-number: ${MSG91_WHATSAPP_NUMBER:}
+    # Template namespace from MSG91 → WhatsApp → Templates (only if your account shows one)
+    namespace: ${MSG91_WHATSAPP_NAMESPACE:}
   token: ${WHATSAPP_TOKEN:}
   phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
   api-version: ${WHATSAPP_API_VERSION:v21.0}

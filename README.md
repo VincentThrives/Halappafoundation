@@ -51,11 +51,15 @@ No password is ever generated and none is in the code: without `SEED_ADMIN_PASSW
 
 | Channel | Sending | Receiving | Server settings |
 |---|---|---|---|
-| WhatsApp | Without keys: manual links ("Open next"). With Meta Cloud API: automatic, ~15/second | Meta webhook → `https://<site>/api/webhooks/whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` |
+| WhatsApp (Meta) | Without keys: manual links ("Open next"). With Meta Cloud API: automatic, ~15/second | Meta webhook → `https://<site>/api/webhooks/whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` |
+| WhatsApp (MSG91) | Automatic through MSG91, **approved templates only** (`{{1}}` = name, `{{2}}` = voucher). Inbox replies open as wa.me links | Not read by the site (see MSG91's WhatsApp inbox) | `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` (same as SMS), `MSG91_WHATSAPP_NUMBER`, optional `MSG91_WHATSAPP_NAMESPACE` |
 | Email | SMTP | IMAP check every 2 minutes | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_IMAP_HOST` |
 | SMS | MSG91 Flow API, 100 per request | Provider's inbound webhook → `/api/webhooks/sms?token=…` | `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY`, `MSG91_FLOW_ID`, `SMS_INBOUND_TOKEN` |
 
 Important:
+- **Using MSG91 for WhatsApp**: connect your WhatsApp number in MSG91 → WhatsApp, create the invitation template there and
+  wait for approval, then set `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` and `MSG91_WHATSAPP_NUMBER` (e.g. `919900123406`) and restart.
+  In **Bulk messages** type the template name exactly as in MSG91. Free-text sends are refused (MSG91 sends templates only).
 - **WhatsApp invitations need an approved template** in Meta (free text only reaches people who messaged in the last 24 h).
   In the template, `{{1}}` = name and `{{2}}` = voucher. To send 5000 in a day the number needs Meta's 10K messaging tier.
   A number on the Cloud API can't be used in the normal WhatsApp app at the same time.
@@ -67,7 +71,7 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 177 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 189 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
@@ -100,7 +104,9 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `WEB_STATIC_DIR` | Path to `frontend/dist/frontend/browser` to serve the site from the same server |
 | `CORS_ORIGINS` | The website's address(es), comma-separated, e.g. `https://halappafoundation.in` (the site calls the API at `apiUrl` from `environment.prod.ts`) |
 | `MAIL_*`, `MAIL_IMAP_*` | Sending and reading email (see table above) |
-| `WHATSAPP_*` | WhatsApp Cloud API + webhook |
+| `WHATSAPP_PROVIDER` | `meta` (default) or `msg91` |
+| `WHATSAPP_*` | WhatsApp Cloud API + webhook (Meta) |
+| `MSG91_WHATSAPP_NUMBER`, `MSG91_WHATSAPP_NAMESPACE` | WhatsApp through MSG91 (uses `MSG91_AUTH_KEY`) |
 | `SMS_PROVIDER`, `MSG91_*`, `SMS_INBOUND_TOKEN` | SMS |
 | `CAMPAIGN_MAX_RECIPIENTS` | Default 5000 per send |
 

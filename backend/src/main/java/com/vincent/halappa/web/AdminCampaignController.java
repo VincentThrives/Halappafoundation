@@ -38,7 +38,10 @@ public class AdminCampaignController {
                                         @org.springframework.beans.factory.annotation.Value("${app.campaign.max-recipients:5000}") int max) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("whatsappApi", whatsapp.apiEnabled());
-        m.put("whatsappInbound", whatsapp.apiEnabled() && !waSecret.isBlank());
+        m.put("whatsappProvider", whatsapp.provider());
+        m.put("whatsappTemplatesOnly", whatsapp.apiEnabled() && whatsapp.templatesOnly());
+        // Incoming WhatsApp is read from Meta's webhook only.
+        m.put("whatsappInbound", whatsapp.apiEnabled() && !whatsapp.templatesOnly() && !waSecret.isBlank());
         m.put("email", mail.enabled());
         m.put("emailInbound", imap.enabled());
         m.put("sms", sms.enabled());

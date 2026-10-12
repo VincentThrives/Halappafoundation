@@ -89,7 +89,7 @@ export class NewCampaignComponent {
   status(c: ChannelKey) {
     const s = this.ch();
     if (!s) return '…';
-    if (c === 'whatsapp') return s.whatsappApi ? 'Connected (automatic)' : 'Manual mode (API not connected)';
+    if (c === 'whatsapp') return s.whatsappApi ? (s.whatsappProvider === 'msg91' ? 'Connected via MSG91 (automatic)' : 'Connected (automatic)') : 'Manual mode (API not connected)';
     return (c === 'email' ? s.email : s.sms) ? 'Connected' : 'Not connected';
   }
   pickChannel(c: ChannelKey) { this.channel = c; this.error.set(''); }

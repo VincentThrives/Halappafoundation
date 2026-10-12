@@ -1,6 +1,7 @@
 package com.vincent.halappa.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -13,26 +14,64 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Meta WhatsApp Business Cloud API client, plus wa.me helpers for manual mode. */
+/**
+ * Sends WhatsApp messages through one of two providers, chosen by {@code whatsapp.provider}:
+ * <ul>
+ *   <li>{@code meta}: Meta's WhatsApp Business Cloud API directly (WHATSAPP_TOKEN + WHATSAPP_PHONE_NUMBER_ID);</li>
+ *   <li>{@code msg91}: MSG91's WhatsApp API (MSG91_AUTH_KEY + MSG91_WHATSAPP_NUMBER), approved templates only.</li>
+ * </ul>
+ * Plus wa.me helpers for manual mode when neither is connected.
+ */
 @Service
 public class WhatsAppService {
 
+    private final String provider;
     private final String token;
     private final String phoneNumberId;
     private final String apiVersion;
     private final RestClient http;
+    private final String msg91AuthKey;
+    private final String msg91Number;
+    private final String msg91Namespace;
+    private final RestClient msg91;
 
-    public WhatsAppService(@Value("${whatsapp.token:}") String token,
+    @Autowired
+    public WhatsAppService(@Value("${whatsapp.provider:meta}") String provider,
+                           @Value("${whatsapp.token:}") String token,
                            @Value("${whatsapp.phone-number-id:}") String phoneNumberId,
                            @Value("${whatsapp.api-version:v21.0}") String apiVersion,
-                           @Value("${whatsapp.base-url:https://graph.facebook.com}") String baseUrl) {
+                           @Value("${whatsapp.base-url:https://graph.facebook.com}") String baseUrl,
+                           @Value("${sms.msg91.auth-key:}") String msg91AuthKey,
+                           @Value("${whatsapp.msg91.integrated-number:}") String msg91Number,
+                           @Value("${whatsapp.msg91.namespace:}") String msg91Namespace,
+                           @Value("${whatsapp.msg91.base-url:https://api.msg91.com}") String msg91BaseUrl) {
+        this.provider = "msg91".equalsIgnoreCase(provider == null ? "" : provider.trim()) ? "msg91" : "meta";
         this.token = token;
         this.phoneNumberId = phoneNumberId;
         this.apiVersion = apiVersion;
         this.http = RestClient.builder().baseUrl(baseUrl).build();
+        this.msg91AuthKey = msg91AuthKey == null ? "" : msg91AuthKey;
+        this.msg91Number = msg91Number == null ? "" : Contacts.phone(msg91Number) == null ? msg91Number.trim() : Contacts.phone(msg91Number);
+        this.msg91Namespace = msg91Namespace == null ? "" : msg91Namespace.trim();
+        this.msg91 = RestClient.builder().baseUrl(msg91BaseUrl).build();
     }
 
-    public boolean apiEnabled() { return !token.isBlank() && !phoneNumberId.isBlank(); }
+    /** Meta-only setup (kept for callers and tests that don't use MSG91). */
+    public WhatsAppService(String token, String phoneNumberId, String apiVersion, String baseUrl) {
+        this("meta", token, phoneNumberId, apiVersion, baseUrl, "", "", "", "https://api.msg91.com");
+    }
+
+    /** "meta" or "msg91". */
+    public String provider() { return provider; }
+
+    public boolean apiEnabled() {
+        return isMsg91() ? !msg91AuthKey.isBlank() && !msg91Number.isBlank() : !token.isBlank() && !phoneNumberId.isBlank();
+    }
+
+    /** MSG91 sends approved templates only (no free-text messages or replies). */
+    public boolean templatesOnly() { return isMsg91(); }
+
+    private boolean isMsg91() { return "msg91".equals(provider); }
 
     /** Kept for callers that only need number clean-up. */
     public static String normalize(String phone) { return Contacts.phone(phone); }
@@ -42,10 +81,14 @@ public class WhatsAppService {
     }
 
     /**
-     * Sends one message and returns Meta's message id (wamid), used to match delivery/read receipts.
+     * Sends one message and returns the provider's message/request id (used to match delivery receipts).
      * Free text only reaches people who messaged in the last 24h; invitations need an approved template.
      */
     public String send(String to, String text, String template, String lang, List<String> params) {
+        return isMsg91() ? sendMsg91(to, template, lang, params) : sendMeta(to, text, template, lang, params);
+    }
+
+    private String sendMeta(String to, String text, String template, String lang, List<String> params) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("messaging_product", "whatsapp");
         body.put("to", to);
@@ -73,8 +116,69 @@ public class WhatsAppService {
                     .body(JsonNode.class);
             return res != null && res.path("messages").has(0) ? res.path("messages").get(0).path("id").asText(null) : null;
         } catch (RestClientResponseException e) {
-            String msg = e.getResponseBodyAsString();
-            throw new IllegalStateException(msg.length() > 400 ? msg.substring(0, 400) : msg);
+            throw new IllegalStateException(cap(e.getResponseBodyAsString()));
         }
     }
+
+    /**
+     * MSG91 WhatsApp template message. The template's {{1}}, {{2}}… are filled from params
+     * (MSG91 names them body_1, body_2…): for invitations {{1}} = name, {{2}} = voucher.
+     */
+    private String sendMsg91(String to, String template, String lang, List<String> params) {
+        if (template == null || template.isBlank())
+            throw new IllegalStateException("MSG91 sends approved WhatsApp templates only; give the template name");
+        Map<String, Object> components = new LinkedHashMap<>();
+        if (params != null) {
+            for (int i = 0; i < params.size(); i++)
+                components.put("body_" + (i + 1), Map.of("type", "text", "value", params.get(i) == null ? "" : params.get(i)));
+        }
+        Map<String, Object> tpl = new LinkedHashMap<>();
+        tpl.put("name", template.trim());
+        tpl.put("language", Map.of("code", lang == null || lang.isBlank() ? "en" : lang.trim(), "policy", "deterministic"));
+        if (!msg91Namespace.isBlank()) tpl.put("namespace", msg91Namespace);
+        tpl.put("to_and_components", List.of(Map.of("to", List.of(to), "components", components)));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("messaging_product", "whatsapp");
+        payload.put("type", "template");
+        payload.put("template", tpl);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("integrated_number", msg91Number);
+        body.put("content_type", "template");
+        body.put("payload", payload);
+        try {
+            JsonNode res = msg91.post()
+                    .uri("/api/v5/whatsapp/whatsapp-outbound-message/bulk/")
+                    .header("authkey", msg91AuthKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(JsonNode.class);
+            if (res == null) throw new IllegalStateException("MSG91: empty response");
+            boolean failed = res.path("hasError").asBoolean(false)
+                    || "fail".equalsIgnoreCase(res.path("status").asText())
+                    || "error".equalsIgnoreCase(res.path("type").asText());
+            if (failed) throw new IllegalStateException("MSG91: " + cap(firstText(res, "errors", "message", "data")));
+            String id = firstText(res, "request_id", "requestId", "data");
+            return id == null || id.isBlank() ? null : cap(id);
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException("MSG91: " + cap(e.getResponseBodyAsString()));
+        }
+    }
+
+    /** First non-empty field among names (text, or JSON for objects/arrays; also looks one level inside "data"). */
+    private static String firstText(JsonNode res, String... names) {
+        for (String n : names) {
+            JsonNode v = res.path(n);
+            if (v.isMissingNode() || v.isNull()) v = res.path("data").path(n);
+            if (v.isMissingNode() || v.isNull()) continue;
+            String s = v.isValueNode() ? v.asText() : v.toString();
+            if (!s.isBlank()) return s;
+        }
+        return res.toString();
+    }
+
+    private static String cap(String s) { return s == null ? null : s.length() > 400 ? s.substring(0, 400) : s; }
 }
