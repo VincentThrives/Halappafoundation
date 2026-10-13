@@ -137,6 +137,17 @@ describe('Footer', () => {
     expect(f.nativeElement.textContent).toContain(String(new Date().getFullYear()));
   });
 
+  it('credits Vincent Thrives with a link that opens www.vincentthrives.com in a new tab', () => {
+    setup();
+    const f = TestBed.createComponent(FooterComponent);
+    f.detectChanges();
+    const a: HTMLAnchorElement = f.nativeElement.querySelector('a.powered');
+    expect(a.textContent!.replace(/\s+/g, ' ').trim()).toBe('Powered by Vincent Thrives Private Limited');
+    expect(a.getAttribute('href')).toBe('https://www.vincentthrives.com');
+    expect(a.getAttribute('target')).toBe('_blank');
+    expect(a.getAttribute('rel')).toContain('noopener');
+  });
+
   it('hides social icons that have no link', () => {
     setup({ ...SETTINGS, instagram: '', youtube: '' });
     const f = TestBed.createComponent(FooterComponent);
