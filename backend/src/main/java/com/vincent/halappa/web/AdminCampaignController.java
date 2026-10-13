@@ -30,6 +30,11 @@ public class AdminCampaignController {
     private final MailService mail;
     private final SmsService sms;
     private final ImapPoller imap;
+    private final FileStorageService files;
+
+    /** Public address of this backend for links WhatsApp must download (e.g. https://halappa-api.onrender.com). */
+    @org.springframework.beans.factory.annotation.Value("${app.public-url:}")
+    private String publicUrl;
 
     /** Which channels can send and receive right now. */
     @GetMapping("/channels")
@@ -70,6 +75,25 @@ public class AdminCampaignController {
             m.put("message", "Couldn't load templates: " + e.getMessage());
         }
         return m;
+    }
+
+    /**
+     * Photo for a template with an IMAGE header. WhatsApp accepts JPG or PNG up to 5 MB and downloads it from the
+     * returned public https link for every message.
+     */
+    @PostMapping(value = "/header-image", consumes = "multipart/form-data")
+    public Map<String, String> headerImage(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) throw com.vincent.halappa.common.ApiException.badRequest("Choose a photo");
+        String type = file.getContentType() == null ? "" : file.getContentType();
+        if (!type.equals("image/jpeg") && !type.equals("image/png"))
+            throw com.vincent.halappa.common.ApiException.badRequest("WhatsApp accepts JPG or PNG photos only");
+        if (file.getSize() > 5L * 1024 * 1024)
+            throw com.vincent.halappa.common.ApiException.badRequest("The photo is larger than 5 MB (WhatsApp's limit); use a smaller one");
+        String path = files.store(file);
+        String base = publicUrl == null || publicUrl.isBlank()
+                ? org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentContextPath().toUriString()
+                : publicUrl.trim().replaceAll("/+$", "");
+        return Map.of("path", path, "url", base + path);
     }
 
     @PostMapping(value = "/import", consumes = "multipart/form-data")

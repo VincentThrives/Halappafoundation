@@ -145,6 +145,41 @@ class WhatsAppMsg91Test {
     }
 
     @Test
+    void templateListReportsPhotoHeaders() {
+        reply = "[{\"name\":\"event_update\",\"language\":\"kn\",\"status\":\"APPROVED\",\"components\":["
+                + "{\"type\":\"HEADER\",\"format\":\"IMAGE\"},{\"type\":\"BODY\",\"text\":\"Today {{1}} at {{2}}\"}]},"
+                + "{\"name\":\"plain\",\"language\":\"en\",\"status\":\"APPROVED\",\"components\":[{\"type\":\"BODY\",\"text\":\"Hi {{1}}\"}]}]";
+        List<WhatsAppService.Template> list = msg91("KEY", "919900123406", "").templates();
+        assertThat(list.get(0).header()).isEqualTo("IMAGE");
+        assertThat(list.get(0).variables()).isEqualTo(2);
+        assertThat(list.get(1).header()).isNull();
+    }
+
+    @Test
+    void photoHeaderIsSentToMsg91AsHeader1() {
+        msg91("KEY", "919900123406", "").send("919876543210", null, "event_update", "kn", List.of("12-10-2026"),
+                "https://halappa.example/uploads/abc.jpg");
+        JsonNode comp = body.get().path("payload").path("template").path("to_and_components").get(0).path("components");
+        assertThat(comp.path("header_1").path("type").asText()).isEqualTo("image");
+        assertThat(comp.path("header_1").path("value").asText()).isEqualTo("https://halappa.example/uploads/abc.jpg");
+        assertThat(comp.path("body_1").path("value").asText()).isEqualTo("12-10-2026");
+        // no photo → no header component
+        msg91("KEY", "919900123406", "").send("919876543210", null, "kit_invite", "en", List.of("A"), null);
+        assertThat(body.get().path("payload").path("template").path("to_and_components").get(0).path("components").has("header_1")).isFalse();
+    }
+
+    @Test
+    void photoHeaderIsSentToMetaAsAnImageHeaderComponent() throws Exception {
+        String metaBase = base; // same fake server records the body
+        new WhatsAppService("token", "PHONE", "v21.0", metaBase)
+                .send("919876543210", null, "event_update", "kn", List.of("12-10-2026"), "https://halappa.example/uploads/abc.jpg");
+        JsonNode parts = body.get().path("template").path("components");
+        assertThat(parts.get(0).path("type").asText()).isEqualTo("header");
+        assertThat(parts.get(0).path("parameters").get(0).path("image").path("link").asText()).isEqualTo("https://halappa.example/uploads/abc.jpg");
+        assertThat(parts.get(1).path("type").asText()).isEqualTo("body");
+    }
+
+    @Test
     void templateListShowsMsg91sOwnErrorText() {
         // The exact answer MSG91 gives for a wrong or missing auth key
         status = 401;

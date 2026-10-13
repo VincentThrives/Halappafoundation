@@ -82,6 +82,8 @@ Important:
   In **Bulk messages** pick the template from the list (loaded from MSG91; if it can't be loaded, type the name and paste its text).
   The full approved text is shown; fill each blank with the person's name, their voucher or your own text (date, venue…),
   and the preview shows exactly what the first person receives. Bulk sends without a template are refused.
+  Templates with a **photo header** show a "Photo at the top" box: upload one JPG/PNG (up to 5 MB) for the send; WhatsApp
+  downloads it from the backend's public link, so the backend must be reachable on https (set `PUBLIC_URL` if links come out wrong).
   For replies and delivery ticks, set `MSG91_WEBHOOK_TOKEN` to a long random value and paste
   `https://<backend>/api/webhooks/msg91-whatsapp?token=<that value>` into MSG91 → WhatsApp → Webhook for Inbound and Outbound.
   Both MSG91 and the website can be used to reply: messages sent from MSG91's own panel are not shown in the site's Inbox.
@@ -96,11 +98,11 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 224 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 229 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
-# Frontend: 235 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
+# Frontend: 243 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
 cd frontend && npm run test:ci
 ```
 
@@ -128,6 +130,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | Creates the first admin once, on a database with no admin. Required before the first start; later changes to it have no effect (the stored password stays fixed). Keep the database (`MONGODB_URI`) the same across deploys |
 | `ADMIN_RECOVERY_EMAIL` | Where "Forgot password?" codes are emailed (default `MAIL_NOTIFY_TO`, then info@halappafoundation.in) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |
+| `PUBLIC_URL` | Optional: the backend's public https address, used in WhatsApp photo links (default: taken from each request) |
 | `WEB_STATIC_DIR` | Path to `frontend/dist/frontend/browser` to serve the site from the same server |
 | `CORS_ORIGINS` | The website's address(es), comma-separated, e.g. `https://halappafoundation.in` (the site calls the API at `apiUrl` from `environment.prod.ts`) |
 | `MAIL_*`, `MAIL_IMAP_*` | Sending and reading email (see table above) |

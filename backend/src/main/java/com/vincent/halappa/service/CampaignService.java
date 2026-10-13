@@ -66,7 +66,11 @@ public class CampaignService {
             /** WhatsApp template text with {{1}}, {{2}}… (for the log/preview; optional). */
             String templateBody,
             /** Values for {{1}}, {{2}}… in order; each may use {name} and {voucher}. Empty = name, voucher. */
-            List<String> templateParams) {}
+            List<String> templateParams,
+            /** The template's header type ("IMAGE" needs headerImage). */
+            String templateHeader,
+            /** Public https link of the photo for an IMAGE header (from the header-image upload). */
+            String headerImage) {}
 
     public record Stats(long total, long queued, long sent, long delivered, long read, long failed, long manual,
                         long cancelled, long attended) {}
@@ -87,6 +91,10 @@ public class CampaignService {
                 boolean hasTemplate = !isBlank(r.template()) && !manual;
                 if (!manual && whatsapp.bulkNeedsTemplate() && !hasTemplate)
                     throw ApiException.badRequest("WhatsApp through MSG91 needs an approved template: enter the template name exactly as in MSG91");
+                if (hasTemplate && "IMAGE".equalsIgnoreCase(r.templateHeader()) && isBlank(r.headerImage()))
+                    throw ApiException.badRequest("This template shows a photo at the top: upload the photo for this send");
+                if (!isBlank(r.headerImage()) && !r.headerImage().trim().matches("(?i)https?://\\S+"))
+                    throw ApiException.badRequest("The photo link isn't valid; upload the photo again");
                 if (hasTemplate && !isBlank(r.templateBody())) {
                     int needed = Contacts.templateVariables(r.templateBody());
                     List<String> given = r.templateParams() == null ? List.of() : r.templateParams();
@@ -128,6 +136,7 @@ public class CampaignService {
             List<String> tp = r.templateParams() == null ? List.of()
                     : r.templateParams().stream().map(s -> cap(s == null ? "" : s.trim(), 500)).toList();
             c.setTemplateParams(tp.isEmpty() ? null : tp);
+            c.setHeaderImage(isBlank(r.headerImage()) ? null : cap(r.headerImage().trim(), 1000));
         }
         c.setVoucherMode(v.mode() == null ? "none" : v.mode());
         c.setVoucherInfo(voucherInfo(v, codes));

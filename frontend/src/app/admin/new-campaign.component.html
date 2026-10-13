@@ -142,6 +142,27 @@
           <div class="field"><label>Template language</label>
             <select class="input" [(ngModel)]="templateLang" [disabled]="manual"><option value="en">English (en)</option><option value="kn">Kannada (kn)</option></select></div>
         </div>
+        @if (templateName.trim()) {
+          <label class="opt"><input type="checkbox" [ngModel]="templateHeader === 'IMAGE'" (ngModelChange)="templateHeader = $event ? 'IMAGE' : ''">
+            This template shows a photo at the top</label>
+        }
+      }
+      @if (needsPhoto()) {
+        <div class="field photo">
+          <label>Photo at the top <span class="muted">— this template shows a photo; JPG or PNG up to 5 MB, the same photo for everyone</span></label>
+          @if (photo(); as p) {
+            <div class="photo-pick">
+              <img [src]="p.url" alt="Photo for this send">
+              <div><b>{{ p.name }}</b><br><button type="button" class="link" (click)="removePhoto()">Change photo</button></div>
+            </div>
+          } @else {
+            <label class="photo-drop" [class.busy]="uploadingPhoto()">
+              <input type="file" accept="image/jpeg,image/png" (change)="pickPhoto($event)" [disabled]="uploadingPhoto()">
+              <app-icon name="image" /> <span>{{ uploadingPhoto() ? 'Uploading…' : 'Choose a photo' }}</span>
+            </label>
+          }
+          @if (photoError()) { <p class="warn">{{ photoError() }}</p> }
+        </div>
       }
       @if (templateMode()) {
         <div class="field">
@@ -183,7 +204,10 @@
   <div class="preview-msg">
     <small>{{ templateMode() ? 'Exactly what the first person receives' : 'Preview for the first person' }}</small>
     @if (channel === 'email') { <div class="subj">{{ previewSubject() }}</div> }
-    <div class="bubble" [class.mail]="channel === 'email'">{{ preview() }}</div>
+    <div class="bubble" [class.mail]="channel === 'email'">@if (needsPhoto()) {
+        @if (photo(); as p) { <img class="bubble-img" [src]="p.url" alt=""> }
+        @else { <span class="bubble-img empty"><app-icon name="image" /> Photo goes here</span> }
+      }{{ preview() }}</div>
   </div>
 </div>
 

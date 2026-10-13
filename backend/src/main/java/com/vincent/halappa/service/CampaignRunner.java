@@ -89,7 +89,7 @@ public class CampaignRunner {
         try {
             List<String> params = c.getTemplate() == null ? List.of()
                     : Contacts.templateParams(c.getTemplateParams(), m.getName(), m.getVoucher());
-            String id = whatsapp.send(m.getContact(), m.getBody(), c.getTemplate(), c.getTemplateLang(), params);
+            String id = whatsapp.send(m.getContact(), m.getBody(), c.getTemplate(), c.getTemplateLang(), params, c.getHeaderImage());
             done(m, "sent", id, null);
         } catch (Exception e) {
             done(m, "failed", null, e.getMessage());

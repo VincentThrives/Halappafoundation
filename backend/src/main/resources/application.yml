@@ -39,6 +39,9 @@ app:
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4210}
   uploads-dir: ${UPLOADS_DIR:./data/uploads}
+  # Public https address of this backend, used in photo links WhatsApp downloads (e.g. https://halappa-api.onrender.com).
+  # Blank = taken from each request (works behind Render, which sets the forwarded host/protocol).
+  public-url: ${PUBLIC_URL:}
   # Optional: path to the built Angular app (frontend/dist/frontend/browser) so one server serves both.
   web:
     static-dir: ${WEB_STATIC_DIR:}

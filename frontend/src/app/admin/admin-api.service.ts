@@ -60,6 +60,12 @@ export class AdminApi {
     fd.append('file', file);
     return this.http.post<ImportResult>('/api/admin/campaigns/import', fd);
   }
+  /** Photo for a template with an IMAGE header: returns its public link (JPG/PNG, up to 5 MB). */
+  uploadHeaderImage(file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    return this.http.post<{ url: string; path: string }>('/api/admin/campaigns/header-image', fd);
+  }
   whatsappTemplates() { return this.http.get<WaTemplates>('/api/admin/campaigns/whatsapp-templates'); }
   recipientsTemplate() { return this.blob('/api/admin/campaigns/template', {}); }
   campaigns() { return this.http.get<CampaignView[]>('/api/admin/campaigns'); }

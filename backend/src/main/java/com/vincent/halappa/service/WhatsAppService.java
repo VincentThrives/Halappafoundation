@@ -81,7 +81,11 @@ public class WhatsAppService {
     private boolean isMsg91() { return "msg91".equals(provider); }
 
     /** An approved WhatsApp template: its full text with {{1}}, {{2}}… and how many of those it has. */
-    public record Template(String name, String language, String status, String body, int variables) {}
+    /**
+     * An approved WhatsApp template: its full text with {{1}}, {{2}}…, how many of those it has, and its header type
+     * (IMAGE, VIDEO, DOCUMENT, TEXT, or null for none). An IMAGE header needs a photo with every send.
+     */
+    public record Template(String name, String language, String status, String body, int variables, String header) {}
 
     /**
      * Approved templates for the connected number, read from MSG91 (MSG91 → WhatsApp → Templates).
@@ -118,8 +122,10 @@ public class WhatsAppService {
                 if (lang == null || lang.startsWith("[")) lang = text(t, "language", "template_language");
                 String body = bodyText(l);
                 if (body == null) body = bodyText(t);
+                String header = headerType(l);
+                if (header == null) header = headerType(t);
                 out.add(new Template(name, lang == null ? "en" : lang, status == null ? "APPROVED" : status.toUpperCase(),
-                        body, Contacts.templateVariables(body)));
+                        body, Contacts.templateVariables(body), header));
             }
         }
         return out;
@@ -137,6 +143,26 @@ public class WhatsAppService {
             }
         }
         return text(n, "body", "text", "template_body");
+    }
+
+    /** IMAGE / VIDEO / DOCUMENT / TEXT from the template's HEADER component, or null when it has no header. */
+    private static String headerType(JsonNode n) {
+        for (String key : new String[] { "code", "components" }) {
+            JsonNode c = n.path(key);
+            if (c.isTextual() && c.asText().trim().startsWith("[")) {
+                try { c = new com.fasterxml.jackson.databind.ObjectMapper().readTree(c.asText()); } catch (Exception ignored) { }
+            }
+            if (c.isArray()) {
+                for (JsonNode part : c) {
+                    if ("HEADER".equalsIgnoreCase(part.path("type").asText())) {
+                        String fmt = part.path("format").asText(part.path("header_type").asText("TEXT"));
+                        return fmt.isBlank() ? "TEXT" : fmt.toUpperCase();
+                    }
+                }
+            }
+        }
+        String h = text(n, "header_type", "headerType");
+        return h == null ? null : h.toUpperCase();
     }
 
     private static String text(JsonNode n, String... keys) {
@@ -159,8 +185,13 @@ public class WhatsAppService {
      * Free text only reaches people who messaged in the last 24h; invitations need an approved template.
      */
     public String send(String to, String text, String template, String lang, List<String> params) {
-        if (!isMsg91()) return sendMeta(to, text, template, lang, params);
-        return template == null || template.isBlank() ? sendMsg91Text(to, text) : sendMsg91(to, template, lang, params);
+        return send(to, text, template, lang, params, null);
+    }
+
+    /** headerImage: public https link of the photo for a template with an IMAGE header (null if none). */
+    public String send(String to, String text, String template, String lang, List<String> params, String headerImage) {
+        if (!isMsg91()) return sendMeta(to, text, template, lang, params, headerImage);
+        return template == null || template.isBlank() ? sendMsg91Text(to, text) : sendMsg91(to, template, lang, params, headerImage);
     }
 
     /**
@@ -177,7 +208,7 @@ public class WhatsAppService {
         return postMsg91("/api/v5/whatsapp/whatsapp-outbound-message/", body);
     }
 
-    private String sendMeta(String to, String text, String template, String lang, List<String> params) {
+    private String sendMeta(String to, String text, String template, String lang, List<String> params, String headerImage) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("messaging_product", "whatsapp");
         body.put("to", to);
@@ -185,10 +216,12 @@ public class WhatsAppService {
             Map<String, Object> tpl = new LinkedHashMap<>();
             tpl.put("name", template);
             tpl.put("language", Map.of("code", lang == null || lang.isBlank() ? "en" : lang));
-            if (params != null && !params.isEmpty()) {
-                tpl.put("components", List.of(Map.of("type", "body",
-                        "parameters", params.stream().map(p -> Map.of("type", "text", "text", p)).toList())));
-            }
+            List<Map<String, Object>> parts = new java.util.ArrayList<>();
+            if (headerImage != null && !headerImage.isBlank())
+                parts.add(Map.of("type", "header", "parameters", List.of(Map.of("type", "image", "image", Map.of("link", headerImage)))));
+            if (params != null && !params.isEmpty())
+                parts.add(Map.of("type", "body", "parameters", params.stream().map(p -> Map.of("type", "text", "text", p)).toList()));
+            if (!parts.isEmpty()) tpl.put("components", parts);
             body.put("type", "template");
             body.put("template", tpl);
         } else {
@@ -213,10 +246,12 @@ public class WhatsAppService {
      * MSG91 WhatsApp template message. The template's {{1}}, {{2}}… are filled from params
      * (MSG91 names them body_1, body_2…): for invitations {{1}} = name, {{2}} = voucher.
      */
-    private String sendMsg91(String to, String template, String lang, List<String> params) {
+    private String sendMsg91(String to, String template, String lang, List<String> params, String headerImage) {
         if (template == null || template.isBlank())
             throw new IllegalStateException("MSG91 sends approved WhatsApp templates only; give the template name");
         Map<String, Object> components = new LinkedHashMap<>();
+        // Photo header: MSG91 fetches the image from this public link for every message.
+        if (headerImage != null && !headerImage.isBlank()) components.put("header_1", Map.of("type", "image", "value", headerImage));
         if (params != null) {
             for (int i = 0; i < params.size(); i++)
                 components.put("body_" + (i + 1), Map.of("type", "text", "value", params.get(i) == null ? "" : params.get(i)));

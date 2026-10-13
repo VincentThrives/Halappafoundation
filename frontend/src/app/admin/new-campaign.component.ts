@@ -162,13 +162,41 @@ export class NewCampaignComponent {
   /** Picked from the list: fills name, language and text, and suggests name/voucher for {{1}}/{{2}}. */
   chooseTemplate(key: string) {
     const t = this.templates().find(x => x.name + '|' + x.language === key);
-    if (!t) { this.templateName = ''; this.templateBody = ''; this.templateParams = []; return; }
+    if (!t) { this.templateName = ''; this.templateBody = ''; this.templateParams = []; this.templateHeader = ''; return; }
     this.templateName = t.name;
     this.templateLang = t.language || 'en';
     this.templateBody = t.body ?? '';
+    this.templateHeader = (t.header ?? '').toUpperCase();
+    if (this.templateHeader !== 'IMAGE') this.photo.set(null);
     this.templateParams = [];
     this.syncParams();
   }
+
+  // ---------- photo at the top (templates with an IMAGE header) ----------
+  /** The chosen template's header type; 'IMAGE' means every message needs a photo. */
+  templateHeader = '';
+  readonly photo = signal<{ url: string; name: string } | null>(null);
+  readonly uploadingPhoto = signal(false);
+  readonly photoError = signal('');
+
+  needsPhoto(): boolean { return this.templateMode() && this.templateHeader === 'IMAGE'; }
+
+  /** WhatsApp header photos: JPG or PNG, up to 5 MB. Uploaded to the server, which gives a public link. */
+  pickPhoto(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    this.photoError.set('');
+    if (!['image/jpeg', 'image/png'].includes(file.type)) { this.photoError.set('WhatsApp accepts JPG or PNG photos only.'); return; }
+    if (file.size > 5 * 1024 * 1024) { this.photoError.set('The photo is larger than 5 MB (WhatsApp\'s limit); use a smaller one.'); return; }
+    this.uploadingPhoto.set(true);
+    this.api.uploadHeaderImage(file).subscribe({
+      next: r => { this.uploadingPhoto.set(false); this.photo.set({ url: r.url, name: file.name }); },
+      error: err => { this.uploadingPhoto.set(false); this.photoError.set(errMsg(err, "Couldn't upload the photo")); },
+    });
+  }
+  removePhoto() { this.photo.set(null); }
   templateKey() { return this.templateName ? this.templateName + '|' + this.templateLang : ''; }
 
   /** How many {{n}} the template text has. */
@@ -266,6 +294,8 @@ export class NewCampaignComponent {
       template: this.channel === 'whatsapp' && !this.manual ? this.templateName : '', templateLang: this.templateLang,
       templateBody: this.templateMode() ? this.templateBody : '',
       templateParams: this.templateMode() && this.templateBody.trim() ? this.templateParams : [],
+      templateHeader: this.templateMode() ? this.templateHeader : '',
+      headerImage: this.needsPhoto() ? this.photo()?.url ?? '' : '',
       manual: this.manual, pasted: this.pasted,
       voucher: this.voucherOn
         ? { mode: this.voucherMode, prefix: this.prefix, start: this.start, digits: this.digits, fixed: this.fixed }
@@ -287,6 +317,7 @@ export class NewCampaignComponent {
     if (this.source === 'excel' && !this.imported()) { this.error.set('Import an Excel file first.'); return; }
     if (this.source === 'range' && this.rangeFrom && this.rangeTo && this.rangeFrom > this.rangeTo) { this.error.set('From date must be on or before To date.'); return; }
     if (this.source === 'pasted' && !this.pasted.trim()) { this.error.set('Paste at least one number or email.'); return; }
+    if (this.needsPhoto() && !this.photo()) { this.error.set('This template shows a photo at the top: upload the photo first.'); return; }
     if (this.templateMode() && this.templateBody.trim()) {
       const missing = this.templateParams.findIndex(v => !v.trim());
       if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }

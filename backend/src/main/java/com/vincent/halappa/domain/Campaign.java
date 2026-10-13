@@ -31,6 +31,8 @@ public class Campaign implements Sequenced {
     private String templateBody;
     /** What fills {{1}}, {{2}}… for everyone: may contain {name} and {voucher}. Null = name, voucher. */
     private java.util.List<String> templateParams;
+    /** Public link of the photo shown at the top of each message (templates with an IMAGE header). */
+    private String headerImage;
 
     /** none | auto | excel | fixed */
     private String voucherMode = "none";

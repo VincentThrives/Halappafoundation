@@ -48,7 +48,8 @@ export interface CampaignStats {
 export interface CampaignView { campaign: Campaign; stats: CampaignStats; }
 
 /** An approved WhatsApp template: full text with {{1}}, {{2}}… and how many there are. */
-export interface WaTemplate { name: string; language: string; status: string; body: string | null; variables: number; }
+/** header: 'IMAGE' (needs a photo with every send), 'TEXT', 'VIDEO', 'DOCUMENT' or null. */
+export interface WaTemplate { name: string; language: string; status: string; body: string | null; variables: number; header?: string | null; }
 export interface WaTemplates { available: boolean; templates: WaTemplate[]; message?: string; }
 
 export interface Channels {

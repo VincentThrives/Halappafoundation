@@ -239,6 +239,8 @@ class Msg91WhatsAppApiTest {
         assertThat(list.get(0).path("variables").asInt()).isEqualTo(3);
         assertThat(list.get(1).path("name").asText()).isEqualTo("thank_you");
         assertThat(list.get(1).path("body").asText()).isEqualTo("Thank you {{1}}"); // BODY, not the header
+        assertThat(list.get(1).path("header").asText()).isEqualTo("TEXT");          // it has a text header…
+        assertThat(list.get(0).path("header").isNull()).isTrue();                    // …kit_invite has none
         assertThat(list.get(1).path("variables").asInt()).isEqualTo(1);
     }
 
@@ -273,6 +275,54 @@ class Msg91WhatsAppApiTest {
         // The send's log shows exactly what each person received
         mvc.perform(get("/api/admin/campaigns/" + id + "/recipients").with(admin()).param("q", "9845012345"))
                 .andExpect(jsonPath("$.items[0].body").value("Namaskara Sri Ramesh, kit distribution on Sunday 20 Oct, Madhugiri. Voucher: KIT-0001"));
+    }
+
+    // ---------- photo header ----------
+
+    private String uploadPhoto(String type, byte[] bytes, int expectStatus) throws Exception {
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "event." + (type.endsWith("png") ? "png" : "jpg"), type, bytes);
+        return mvc.perform(multipart("/api/admin/campaigns/header-image").file(file).with(admin()))
+                .andExpect(status().is(expectStatus)).andReturn().getResponse().getContentAsString();
+    }
+
+    @Test
+    void headerPhotoUploadGivesAPublicLinkAndOnlyAcceptsJpgOrPngUpTo5Mb() throws Exception {
+        JsonNode r = json.readTree(uploadPhoto("image/jpeg", new byte[] { (byte) 0xFF, (byte) 0xD8, 1, 2, 3 }, 200));
+        assertThat(r.path("path").asText()).startsWith("/uploads/").endsWith(".jpg");
+        assertThat(r.path("url").asText()).startsWith("http://localhost").endsWith(r.path("path").asText()); // full public link
+        assertThat(json.readTree(uploadPhoto("image/png", new byte[] { 1, 2 }, 200)).path("path").asText()).endsWith(".png");
+
+        assertThat(uploadPhoto("image/gif", new byte[] { 1 }, 400)).contains("JPG or PNG");
+        assertThat(uploadPhoto("image/jpeg", new byte[5 * 1024 * 1024 + 1], 400)).contains("5 MB");
+        mvc.perform(multipart("/api/admin/campaigns/header-image")
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "x.jpg", "image/jpeg", new byte[] { 1 })))
+                .andExpect(status().isUnauthorized()); // admins only
+    }
+
+    @Test
+    void photoTemplateNeedsAPhotoAndEveryMessageCarriesIt() throws Exception {
+        Map<String, Object> r = new HashMap<>(Map.of("name", "Event update", "channel", "whatsapp", "template", "event_update",
+                "templateLang", "kn", "templateHeader", "IMAGE", "templateBody", "Today {{1}}, thanks {{2}}",
+                "templateParams", List.of("12-10-2026", "{name}"),
+                "people", List.of(Map.of("name", "Asha", "phone", "9845012345"), Map.of("name", "Ravi", "phone", "9845012346"))));
+        mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(r)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("upload the photo")));
+        r.put("headerImage", "not a link");
+        mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(r)))
+                .andExpect(status().isBadRequest());
+        assertThat(campaigns.count()).isZero();
+
+        r.put("headerImage", "https://halappa.example/uploads/event.jpg");
+        String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(r)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        waitUntilFinished(json.readTree(res).path("campaign").path("id").asLong());
+        assertThat(CALLS).hasSize(2);
+        for (JsonNode call : CALLS) {
+            JsonNode comp = call.path("payload").path("template").path("to_and_components").get(0).path("components");
+            assertThat(comp.path("header_1").path("value").asText()).isEqualTo("https://halappa.example/uploads/event.jpg");
+            assertThat(comp.path("body_1").path("value").asText()).isEqualTo("12-10-2026");
+        }
     }
 
     @Test

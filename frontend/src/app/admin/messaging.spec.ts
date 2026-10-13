@@ -65,6 +65,7 @@ function stub(channels: Channels = NONE) {
     findVoucher: jasmine.createSpy('findVoucher').and.returnValue(of([msg({ status: 'sent' })])),
     attend: jasmine.createSpy('attend').and.returnValue(of(msg({ status: 'sent', attendedAt: '2026-10-12T10:05:00' }))),
     whatsappTemplates: jasmine.createSpy('whatsappTemplates').and.returnValue(of({ available: false, templates: [], message: 'Template list isn\'t available' })),
+    uploadHeaderImage: jasmine.createSpy('uploadHeaderImage').and.returnValue(of({ url: 'https://halappa.example/uploads/ev.jpg', path: '/uploads/ev.jpg' })),
   };
 }
 
@@ -414,6 +415,104 @@ describe('New bulk message', () => {
     f.detectChanges();
     expect(f.nativeElement.querySelector('.tpl-body')).toBeNull();
     expect(c.preview()).toContain('Namaskara Ramesh');
+  });
+
+  describe('photo at the top (IMAGE header templates)', () => {
+    const EVENT = { name: 'event_update', language: 'kn', status: 'APPROVED', variables: 2, header: 'IMAGE',
+      body: 'Today {{1}} the programme was held at {{2}}.' };
+    const fileOf = (type: string, size = 10) => new File([new Uint8Array(size)], type === 'image/png' ? 'ev.png' : 'ev.jpg', { type });
+    const pick = (file: File) => {
+      const input = document.createElement('input');
+      Object.defineProperty(input, 'files', { value: [file] });
+      c.pickPhoto({ target: input } as unknown as Event);
+    };
+
+    function withEventTemplate() {
+      history.replaceState({}, '');
+      api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+      api.whatsappTemplates.and.returnValue(of({ available: true, templates: [EVENT, KIT_TEMPLATE] }));
+      configure(api);
+      spyOn(TestBed.inject(ConfirmService), 'ask').and.resolveTo(true);
+      f = TestBed.createComponent(NewCampaignComponent);
+      c = f.componentInstance;
+      f.detectChanges();
+      c.upload(new File(['x'], 'list.xlsx'));
+      c.chooseTemplate('event_update|kn');
+      c.setParam(0, '12-10-2026');
+      c.setParam(1, 'Madhugiri');
+      f.detectChanges();
+    }
+
+    it('a photo template shows the photo box and a placeholder in the preview', () => {
+      withEventTemplate();
+      expect(c.needsPhoto()).toBeTrue();
+      expect(f.nativeElement.querySelector('.photo-drop')).toBeTruthy();
+      expect(f.nativeElement.querySelector('.bubble .bubble-img.empty')).toBeTruthy();
+    });
+
+    it('refuses the send until the photo is added', async () => {
+      withEventTemplate();
+      await c.send();
+      expect(c.error()).toContain('upload the photo first');
+      expect(api.createCampaign).not.toHaveBeenCalled();
+    });
+
+    it('only JPG/PNG up to 5 MB are uploaded', () => {
+      withEventTemplate();
+      pick(fileOf('image/gif'));
+      expect(c.photoError()).toContain('JPG or PNG');
+      pick(fileOf('image/jpeg', 5 * 1024 * 1024 + 1));
+      expect(c.photoError()).toContain('5 MB');
+      expect(api.uploadHeaderImage).not.toHaveBeenCalled();
+    });
+
+    it('uploads the photo, shows it in the preview and sends its link with the template', async () => {
+      withEventTemplate();
+      pick(fileOf('image/png'));
+      f.detectChanges();
+      expect(api.uploadHeaderImage).toHaveBeenCalled();
+      expect(c.photo()).toEqual({ url: 'https://halappa.example/uploads/ev.jpg', name: 'ev.png' });
+      expect(f.nativeElement.querySelector('.photo-pick img').getAttribute('src')).toBe('https://halappa.example/uploads/ev.jpg');
+      expect(f.nativeElement.querySelector('.bubble img.bubble-img').getAttribute('src')).toBe('https://halappa.example/uploads/ev.jpg');
+      await c.send();
+      expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+        template: 'event_update', templateHeader: 'IMAGE', headerImage: 'https://halappa.example/uploads/ev.jpg',
+        templateParams: ['12-10-2026', 'Madhugiri'],
+      }));
+    });
+
+    it('upload errors are shown and the photo can be changed', () => {
+      withEventTemplate();
+      api.uploadHeaderImage.and.returnValue(throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'WhatsApp accepts JPG or PNG photos only' } })));
+      pick(fileOf('image/jpeg'));
+      expect(c.photoError()).toContain('JPG or PNG');
+      expect(c.uploadingPhoto()).toBeFalse();
+      c.photo.set({ url: 'u', name: 'n' });
+      c.removePhoto();
+      expect(c.photo()).toBeNull();
+    });
+
+    it('switching to a template without a photo drops the photo; no photo is sent', async () => {
+      withEventTemplate();
+      c.photo.set({ url: 'https://x/y.jpg', name: 'y.jpg' });
+      c.chooseTemplate('kit_invite|kn');
+      c.setParam(2, '20 Oct');
+      expect(c.needsPhoto()).toBeFalse();
+      expect(c.photo()).toBeNull();
+      await c.send();
+      expect(api.createCampaign.calls.mostRecent().args[0].headerImage).toBe('');
+    });
+
+    it('without a template list, a tick-box says the template has a photo', () => {
+      create(ALL);
+      c.templateName = 'event_update';
+      f.detectChanges();
+      expect(c.needsPhoto()).toBeFalse();
+      c.templateHeader = 'IMAGE';
+      f.detectChanges();
+      expect(c.needsPhoto()).toBeTrue();
+      expect(f.nativeElement.querySelector('.photo-drop')).toBeTruthy();
+    });
   });
 
   describe('wallet cost', () => {
