@@ -12,7 +12,15 @@ nav a.on { background: var(--gold-grad); color: var(--m-900); }
 .foot a, .foot button { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,.7); background: none; border: 0; cursor: pointer; text-decoration: none; font-size: .88rem; text-align: left; }
 .foot a:hover, .foot button:hover { background: rgba(255,255,255,.08); color: #fff; }
 .main { min-width: 0; }
-.topbar { display: none; }
+/* Top bar on every admin page: who is signed in + Sign out (burger only on small screens). */
+.topbar { display: flex; align-items: center; gap: 12px; padding: 10px 28px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 100; }
+.topbar .title { font-weight: 600; color: var(--m-800); margin-right: auto; }
+.burger { display: none; }
+.who { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; color: var(--ink); }
+.who .dot { width: 8px; height: 8px; border-radius: 50%; background: #1fb855; }
+.signout { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px; border: 1.5px solid var(--m-700); background: #fff; color: var(--m-700); font-weight: 600; cursor: pointer; transition: all .2s; }
+.signout:hover { background: var(--m-700); color: #fff; }
+.signout app-icon { width: 16px; height: 16px; }
 .content { padding: 28px; max-width: 1400px; }
 .scrim { display: none; }
 @media (max-width: 900px) {
@@ -20,7 +28,20 @@ nav a.on { background: var(--gold-grad); color: var(--m-900); }
   .side { position: fixed; left: 0; top: 0; bottom: 0; width: 260px; z-index: 150; transform: translateX(-100%); transition: transform .35s var(--ease); }
   .open .side { transform: none; }
   .open .scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 140; }
-  .topbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--m-800); color: var(--g-300); position: sticky; top: 0; z-index: 100; }
-  .burger { background: none; border: 0; color: var(--g-300); cursor: pointer; padding: 4px; }
+  .topbar { padding: 10px 14px; background: var(--m-800); border-bottom: 0; gap: 10px; }
+  .topbar .title { color: var(--g-300); font-size: .92rem; }
+  .burger { display: grid; place-items: center; width: 40px; height: 40px; background: none; border: 0; color: var(--g-300); cursor: pointer; padding: 0; margin-left: -6px; }
+  .who { color: rgba(255,255,255,.85); font-size: .82rem; }
+  .signout { border-color: var(--g-400); background: transparent; color: var(--g-300); padding: 7px 12px; }
+  .signout:hover { background: var(--g-400); color: var(--m-900); }
   .content { padding: 18px 14px; }
 }
+@media (max-width: 520px) {
+  .topbar .title, .who { display: none; }
+  .signout { margin-left: auto; }
+}
+.wallet-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: #e7f6ec; color: #1b6b3a; font-weight: 700; text-decoration: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wallet-chip app-icon { width: 16px; height: 16px; }
+.wallet-chip.low { background: #fde2e4; color: #9a1220; }
+.super-tag { padding: 4px 10px; border-radius: 999px; background: var(--gold-grad); color: var(--m-900); font-weight: 700; font-size: .78rem; white-space: nowrap; }
+@media (max-width: 520px) { .super-tag { display: none; } .wallet-chip { padding: 6px 10px; font-size: .88rem; } }

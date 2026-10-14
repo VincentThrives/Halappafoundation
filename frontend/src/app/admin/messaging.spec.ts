@@ -2,9 +2,9 @@ import { ConfirmService } from '../core/confirm.service';
 import { ComponentFixture, TestBed, fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { AdminApi } from './admin-api.service';
-import { DEFAULT_INVITE, NewCampaignComponent, personalise } from './new-campaign.component';
+import { DEFAULT_INVITE, NewCampaignComponent, fillTemplate, personalise, templateVariables } from './new-campaign.component';
 import { CampaignsComponent } from './campaigns.component';
 import { CampaignDetailComponent } from './campaign-detail.component';
 import { InboxComponent } from './inbox.component';
@@ -36,8 +36,11 @@ function msg(over: Partial<Message> = {}): Message {
     body: 'Namaskara Ramesh, voucher KIT-0001', voucher: 'KIT-0001', createdAt: '2026-09-29T10:00:00', ...over };
 }
 
+const FREE_WALLET = { username: 'admin', superAdmin: false, balancePaise: 0, rates: { whatsappPaise: 0, smsPaise: 0, emailPaise: 0 } };
+
 function stub(channels: Channels = NONE) {
   return {
+    wallet: jasmine.createSpy('wallet').and.returnValue(of(FREE_WALLET)),
     channels: jasmine.createSpy('channels').and.returnValue(of(channels)),
     importRecipients: jasmine.createSpy('importRecipients').and.returnValue(of(IMPORT)),
     recipientsTemplate: jasmine.createSpy('recipientsTemplate').and.returnValue(of({ blob: new Blob(['x']), name: 't.xlsx' })),
@@ -61,8 +64,15 @@ function stub(channels: Channels = NONE) {
     reply: jasmine.createSpy('reply').and.returnValue(of({ message: msg({ id: 12, status: 'sent', body: 'Thanks' }) })),
     findVoucher: jasmine.createSpy('findVoucher').and.returnValue(of([msg({ status: 'sent' })])),
     attend: jasmine.createSpy('attend').and.returnValue(of(msg({ status: 'sent', attendedAt: '2026-10-12T10:05:00' }))),
+    whatsappTemplates: jasmine.createSpy('whatsappTemplates').and.returnValue(of({ available: false, templates: [], message: 'Template list isn\'t available' })),
+    uploadHeaderImage: jasmine.createSpy('uploadHeaderImage').and.returnValue(of({ url: 'https://halappa.example/uploads/ev.jpg', path: '/uploads/ev.jpg' })),
   };
 }
+
+const KIT_TEMPLATE = {
+  name: 'kit_invite', language: 'kn', status: 'APPROVED', variables: 3,
+  body: 'Namaskara {{1}}, you are invited to the kit distribution on {{3}}. Your entrance voucher: {{2}}',
+};
 
 function configure(api: ReturnType<typeof stub>, params: Record<string, string> = {}) {
   TestBed.configureTestingModule({
@@ -85,6 +95,15 @@ describe('personalise()', () => {
 });
 
 // =====================================================================
+describe('WhatsApp template helpers', () => {
+  it('counts {{n}} and fills them like the server', () => {
+    expect(templateVariables('Hi {{1}}, voucher {{2}}, on {{ 3 }}')).toBe(3);
+    expect(templateVariables('No blanks')).toBe(0);
+    expect(fillTemplate('Hi {{1}}, voucher {{2}}', ['Asha', 'KIT-1'])).toBe('Hi Asha, voucher KIT-1');
+    expect(fillTemplate('Hi {{1}} and {{1}}', ['A'])).toBe('Hi A and A');
+  });
+});
+
 describe('New bulk message', () => {
   let api: ReturnType<typeof stub>;
   let f: ComponentFixture<NewCampaignComponent>;
@@ -230,6 +249,329 @@ describe('New bulk message', () => {
     c.manual = true;
     await c.send();
     expect(api.createCampaign.calls.mostRecent().args[0].template).toBe('');
+  });
+
+  it('picking an approved template shows the complete message for the first person', () => {
+    history.replaceState({}, '');
+    api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [KIT_TEMPLATE] }));
+    configure(api);
+    f = TestBed.createComponent(NewCampaignComponent);
+    c = f.componentInstance;
+    f.detectChanges();
+    c.upload(new File(['x'], 'list.xlsx'));
+
+    const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
+    expect([...select.options].map(o => o.textContent!.trim())).toEqual(['— Choose an approved template (1) —', 'kit_invite · Kannada']);
+    expect(select.disabled).toBeFalse();
+    c.chooseTemplate('kit_invite|kn');
+    f.detectChanges();
+
+    expect(c.templateName).toBe('kit_invite');
+    expect(c.templateLang).toBe('kn');
+    expect(c.templateParams).toEqual(['{name}', '{voucher}', '']); // {{3}} is for the admin to type
+    // The free-text box is replaced by the fixed (read-only) template text and the blanks
+    expect(f.nativeElement.querySelector('.tpl-body').readOnly).toBeTrue();
+    expect(f.nativeElement.querySelectorAll('.var').length).toBe(3);
+    expect(f.nativeElement.textContent).toContain('Exactly what the first person receives');
+
+    c.setParam(2, 'Sunday 10 AM, Madhugiri');
+    f.detectChanges();
+    expect(c.preview()).toBe('Namaskara Ramesh, you are invited to the kit distribution on Sunday 10 AM, Madhugiri. Your entrance voucher: HV-1');
+    expect(f.nativeElement.querySelector('.bubble').textContent).toContain('Sunday 10 AM, Madhugiri');
+  });
+
+  it('blanks can be changed (name, voucher or typed text) and are sent with the template', async () => {
+    create({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [KIT_TEMPLATE] }));
+    c.loadTemplates();
+    c.upload(new File(['x'], 'list.xlsx'));
+    c.chooseTemplate('kit_invite|kn');
+
+    // an empty blank stops the send with a clear message
+    await c.send();
+    expect(c.error()).toBe('Fill in {{3}} of the template.');
+    expect(api.createCampaign).not.toHaveBeenCalled();
+
+    c.setParam(0, 'Sri {name}');
+    c.setParam(2, '20 Oct');
+    expect(c.preview()).toContain('Namaskara Sri Ramesh');
+    await c.send();
+    expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+      template: 'kit_invite', templateLang: 'kn', templateBody: KIT_TEMPLATE.body,
+      templateParams: ['Sri {name}', '{voucher}', '20 Oct'],
+    }));
+  });
+
+  it('without a template list: type the name, paste the text, and still see the full message', () => {
+    create(ALL);
+    expect(c.templates().length).toBe(0);
+    c.templateName = 'kit_invite';
+    f.detectChanges();
+    expect(c.preview()).toContain('paste its text');
+    const box: HTMLTextAreaElement = f.nativeElement.querySelector('.tpl-body');
+    expect(box.readOnly).toBeFalse();
+    c.templateBody = 'Hello {{1}}, voucher {{2}}';
+    c.syncParams();
+    f.detectChanges();
+    expect(c.preview()).toBe(`Hello Ramesh, voucher KIT-${new Date().getFullYear()}-0001`);
+    expect(f.nativeElement.textContent).toContain(`Template list isn't available`);
+  });
+
+  it('selecting from the dropdown puts the template text into the Message box (via the real <select>)', async () => {
+    history.replaceState({}, '');
+    api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [
+      KIT_TEMPLATE, { name: 'thank_you', language: 'en', status: 'APPROVED', variables: 1, body: 'Thank you {{1}} for coming!' }] }));
+    configure(api);
+    f = TestBed.createComponent(NewCampaignComponent);
+    c = f.componentInstance;
+    f.detectChanges();
+
+    const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
+    select.value = select.options[2].value; // thank_you · English
+    select.dispatchEvent(new Event('change'));
+    f.detectChanges();
+    await f.whenStable(); // form controls receive their value a tick later
+    f.detectChanges();
+
+    const box: HTMLTextAreaElement = f.nativeElement.querySelector('.tpl-body');
+    expect(box.value).toBe('Thank you {{1}} for coming!');
+    expect(box.readOnly).toBeTrue();
+    expect(f.nativeElement.textContent).toContain('from template thank_you');
+    expect(c.preview()).toBe('Thank you Ramesh for coming!');
+
+    // switching to another template replaces the message and its blanks
+    select.value = select.options[1].value;
+    select.dispatchEvent(new Event('change'));
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    expect(box.value).toBe(KIT_TEMPLATE.body);
+    expect(f.nativeElement.querySelectorAll('.var').length).toBe(3);
+  });
+
+  it('shows "Loading approved templates…" until MSG91 answers', async () => {
+    history.replaceState({}, '');
+    api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    const answer = new Subject<any>();
+    api.whatsappTemplates.and.returnValue(answer);
+    configure(api);
+    f = TestBed.createComponent(NewCampaignComponent);
+    c = f.componentInstance;
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    const select: HTMLSelectElement = f.nativeElement.querySelector('.tpl select');
+    expect(select.options[0].textContent).toContain('Loading approved templates');
+    expect(select.disabled).toBeTrue();
+    answer.next({ available: true, templates: [KIT_TEMPLATE] });
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    expect(select.disabled).toBeFalse();
+    expect(select.options.length).toBe(2);
+  });
+
+  it('no approved templates yet: says so and offers Refresh', () => {
+    create({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [] }));
+    c.loadTemplates();
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl select').options[0].textContent).toContain('No approved templates found');
+    expect(f.nativeElement.querySelector('.tpl-note').textContent).toContain('No approved templates found in MSG91 yet');
+
+    // after approving one in MSG91, Refresh brings it in
+    api.whatsappTemplates.and.returnValue(of({ available: true, templates: [KIT_TEMPLATE] }));
+    (f.nativeElement.querySelector('.tpl-pick button') as HTMLButtonElement).click();
+    f.detectChanges();
+    expect(c.templates().length).toBe(1);
+    expect(f.nativeElement.querySelector('.tpl-note')).toBeNull();
+  });
+
+  it("MSG91 errors are shown with the reason, and the name/paste fallback appears", () => {
+    create({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+    api.whatsappTemplates.and.returnValue(of({ available: false, templates: [], message: "Couldn't load templates: MSG91: Unauthorized" }));
+    c.loadTemplates();
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl-note').textContent).toContain('MSG91: Unauthorized');
+    expect(f.nativeElement.querySelector('.tpl select').options[0].textContent).toContain('Template list not available');
+    expect(f.nativeElement.querySelector('input[placeholder="kit_invite"]')).toBeTruthy();
+
+    // a network/server failure is reported too
+    api.whatsappTemplates.and.returnValue(throwError(() => new HttpErrorResponse({ status: 500, error: { message: 'Server down' } })));
+    c.loadTemplates();
+    f.detectChanges();
+    expect(c.templatesNote()).toContain('Server down');
+    expect(c.templatesLoading()).toBeFalse();
+  });
+
+  it('switching to manual links hides the template and brings back the free-text message', () => {
+    create(ALL);
+    c.templateName = 'kit_invite';
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl-body')).toBeTruthy();
+    c.manual = true;
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.tpl-body')).toBeNull();
+    expect(c.preview()).toContain('Namaskara Ramesh');
+  });
+
+  describe('photo at the top (IMAGE header templates)', () => {
+    const EVENT = { name: 'event_update', language: 'kn', status: 'APPROVED', variables: 2, header: 'IMAGE',
+      body: 'Today {{1}} the programme was held at {{2}}.' };
+    const fileOf = (type: string, size = 10) => new File([new Uint8Array(size)], type === 'image/png' ? 'ev.png' : 'ev.jpg', { type });
+    const pick = (file: File) => {
+      const input = document.createElement('input');
+      Object.defineProperty(input, 'files', { value: [file] });
+      c.pickPhoto({ target: input } as unknown as Event);
+    };
+
+    function withEventTemplate() {
+      history.replaceState({}, '');
+      api = stub({ ...ALL, whatsappProvider: 'msg91', whatsappTemplatesOnly: true });
+      api.whatsappTemplates.and.returnValue(of({ available: true, templates: [EVENT, KIT_TEMPLATE] }));
+      configure(api);
+      spyOn(TestBed.inject(ConfirmService), 'ask').and.resolveTo(true);
+      f = TestBed.createComponent(NewCampaignComponent);
+      c = f.componentInstance;
+      f.detectChanges();
+      c.upload(new File(['x'], 'list.xlsx'));
+      c.chooseTemplate('event_update|kn');
+      c.setParam(0, '12-10-2026');
+      c.setParam(1, 'Madhugiri');
+      f.detectChanges();
+    }
+
+    it('a photo template shows the photo box and a placeholder in the preview', () => {
+      withEventTemplate();
+      expect(c.needsPhoto()).toBeTrue();
+      expect(f.nativeElement.querySelector('.photo-drop')).toBeTruthy();
+      expect(f.nativeElement.querySelector('.bubble .bubble-img.empty')).toBeTruthy();
+    });
+
+    it('refuses the send until the photo is added', async () => {
+      withEventTemplate();
+      await c.send();
+      expect(c.error()).toContain('upload the photo first');
+      expect(api.createCampaign).not.toHaveBeenCalled();
+    });
+
+    it('only JPG/PNG up to 5 MB are uploaded', () => {
+      withEventTemplate();
+      pick(fileOf('image/gif'));
+      expect(c.photoError()).toContain('JPG or PNG');
+      pick(fileOf('image/jpeg', 5 * 1024 * 1024 + 1));
+      expect(c.photoError()).toContain('5 MB');
+      expect(api.uploadHeaderImage).not.toHaveBeenCalled();
+    });
+
+    it('uploads the photo, shows it in the preview and sends its link with the template', async () => {
+      withEventTemplate();
+      pick(fileOf('image/png'));
+      f.detectChanges();
+      expect(api.uploadHeaderImage).toHaveBeenCalled();
+      expect(c.photo()).toEqual({ url: 'https://halappa.example/uploads/ev.jpg', name: 'ev.png' });
+      expect(f.nativeElement.querySelector('.photo-pick img').getAttribute('src')).toBe('https://halappa.example/uploads/ev.jpg');
+      expect(f.nativeElement.querySelector('.bubble img.bubble-img').getAttribute('src')).toBe('https://halappa.example/uploads/ev.jpg');
+      await c.send();
+      expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+        template: 'event_update', templateHeader: 'IMAGE', headerImage: 'https://halappa.example/uploads/ev.jpg',
+        templateParams: ['12-10-2026', 'Madhugiri'],
+      }));
+    });
+
+    it('upload errors are shown and the photo can be changed', () => {
+      withEventTemplate();
+      api.uploadHeaderImage.and.returnValue(throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'WhatsApp accepts JPG or PNG photos only' } })));
+      pick(fileOf('image/jpeg'));
+      expect(c.photoError()).toContain('JPG or PNG');
+      expect(c.uploadingPhoto()).toBeFalse();
+      c.photo.set({ url: 'u', name: 'n' });
+      c.removePhoto();
+      expect(c.photo()).toBeNull();
+    });
+
+    it('switching to a template without a photo drops the photo; no photo is sent', async () => {
+      withEventTemplate();
+      c.photo.set({ url: 'https://x/y.jpg', name: 'y.jpg' });
+      c.chooseTemplate('kit_invite|kn');
+      c.setParam(2, '20 Oct');
+      expect(c.needsPhoto()).toBeFalse();
+      expect(c.photo()).toBeNull();
+      await c.send();
+      expect(api.createCampaign.calls.mostRecent().args[0].headerImage).toBe('');
+    });
+
+    it('without a template list, a tick-box says the template has a photo', () => {
+      create(ALL);
+      c.templateName = 'event_update';
+      f.detectChanges();
+      expect(c.needsPhoto()).toBeFalse();
+      c.templateHeader = 'IMAGE';
+      f.detectChanges();
+      expect(c.needsPhoto()).toBeTrue();
+      expect(f.nativeElement.querySelector('.photo-drop')).toBeTruthy();
+    });
+  });
+
+  describe('wallet cost', () => {
+    function withWallet(balancePaise: number, waPaise: number, superAdmin = false) {
+      history.replaceState({}, '');
+      api = stub(ALL);
+      api.wallet.and.returnValue(of({ username: 'admin', superAdmin, balancePaise, rates: { whatsappPaise: waPaise, smsPaise: 25, emailPaise: 10 } }));
+      configure(api);
+      spyOn(TestBed.inject(ConfirmService), 'ask').and.resolveTo(true);
+      f = TestBed.createComponent(NewCampaignComponent);
+      c = f.componentInstance;
+      f.detectChanges();
+      c.upload(new File(['x'], 'list.xlsx')); // 2 people
+      c.templateName = 'kit_invite';
+      f.detectChanges();
+    }
+    const costText = () => (f.nativeElement.querySelector('.cost')?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+    it('shows people × price = total against the wallet', () => {
+      withWallet(1000, 80);
+      expect(c.costPaise()).toBe(160);
+      expect(costText()).toContain('Cost: 2 × ₹0.80 = ₹1.60 · Wallet ₹10.00');
+      expect(f.nativeElement.querySelector('.cost').classList.contains('short')).toBeFalse();
+    });
+
+    it('blocks the send early when the wallet is short', async () => {
+      withWallet(100, 80);
+      expect(costText()).toContain('Not enough balance');
+      await c.send();
+      expect(c.error()).toContain('this send costs ₹1.60 and the wallet has ₹1.00');
+      expect(api.createCampaign).not.toHaveBeenCalled();
+    });
+
+    it('manual WhatsApp links cost nothing, even with an empty wallet', async () => {
+      withWallet(0, 80);
+      c.manual = true;
+      f.detectChanges();
+      expect(c.paid()).toBeFalse();
+      expect(costText()).toContain('No charge: sending by hand');
+      await c.send();
+      expect(api.createCampaign).toHaveBeenCalled();
+    });
+
+    it('a ₹0 price costs nothing', () => {
+      withWallet(0, 0);
+      expect(costText()).toContain('the price for this channel is ₹0');
+    });
+
+    it('super admin sends are not charged', () => {
+      withWallet(0, 80, true);
+      expect(costText()).toContain("Super admin sends aren't charged");
+    });
+
+    it('the confirmation says how much will be taken', async () => {
+      withWallet(1000, 80);
+      await c.send();
+      const ask = TestBed.inject(ConfirmService).ask as jasmine.Spy;
+      expect(ask.calls.mostRecent().args[0].message).toContain('₹1.60 will be taken from the wallet now');
+    });
   });
 
   it('email adds a personalised subject', async () => {

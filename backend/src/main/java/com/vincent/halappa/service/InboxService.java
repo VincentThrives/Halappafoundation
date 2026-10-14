@@ -29,6 +29,7 @@ public class InboxService {
     private final WhatsAppService whatsapp;
     private final MailService mail;
     private final MongoTemplate mongo;
+    @org.springframework.beans.factory.annotation.Autowired(required = false) private WalletService wallet;
 
     public InboxService(MessageRepository messages, WhatsAppService whatsapp, @Lazy MailService mail, MongoTemplate mongo) {
         this.messages = messages;
@@ -128,7 +129,10 @@ public class InboxService {
 
     public record ReplyResult(Message message, String link) {}
 
-    public ReplyResult reply(String channel, String contact, String subject, String text) {
+    public ReplyResult reply(String channel, String contact, String subject, String text) { return reply(channel, contact, subject, text, null); }
+
+    /** Replies sent by the website (not wa.me links) cost one message from the admin's wallet; refunded if not sent. */
+    public ReplyResult reply(String channel, String contact, String subject, String text, String admin) {
         if (isBlank(text)) throw ApiException.badRequest("Write a reply first");
         String name = messages.findByChannelAndContactOrderByIdAsc(channel, contact).stream()
                 .map(Message::getName).filter(Objects::nonNull).reduce((a, b) -> b).orElse(null);
@@ -136,11 +140,14 @@ public class InboxService {
             case "whatsapp", "web" -> {
                 String phone = Contacts.phone(contact);
                 if (phone == null) throw ApiException.badRequest("No valid WhatsApp number for this conversation");
+                // Sent from the website (Meta or MSG91); without a connected provider it becomes a wa.me link.
                 if (whatsapp.apiEnabled()) {
+                    long paid = wallet == null ? 0 : wallet.chargeReply(admin, "whatsapp", phone);
                     try {
                         String id = whatsapp.send(phone, text, null, null, null);
                         return new ReplyResult(recordOut("whatsapp", phone, name, null, text, "sent", id), null);
                     } catch (Exception e) {
+                        if (wallet != null) wallet.refundReply(admin, "whatsapp", phone, paid);
                         Message m = recordOut("whatsapp", phone, name, null, text, "failed", null);
                         m.setError(cap(e.getMessage(), 1000));
                         messages.save(m);
@@ -153,7 +160,14 @@ public class InboxService {
             case "email" -> {
                 if (!mail.enabled()) throw ApiException.badRequest("Email is not connected (set SMTP details on the server)");
                 String subj = isBlank(subject) ? "Halappa Foundation" : subject;
-                String id = mail.send(contact, subj, text, null);
+                long paid = wallet == null ? 0 : wallet.chargeReply(admin, "email", contact);
+                String id;
+                try {
+                    id = mail.send(contact, subj, text, null);
+                } catch (RuntimeException e) {
+                    if (wallet != null) wallet.refundReply(admin, "email", contact, paid);
+                    throw e;
+                }
                 return new ReplyResult(recordOut("email", contact, name, subj, text, "sent", id), null);
             }
             case "sms" -> throw ApiException.badRequest("SMS replies need a DLT-approved template; send them as a bulk SMS campaign instead.");

@@ -39,6 +39,9 @@ app:
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:4210}
   uploads-dir: ${UPLOADS_DIR:./data/uploads}
+  # Public https address of this backend, used in photo links WhatsApp downloads (e.g. https://halappa-api.onrender.com).
+  # Blank = taken from each request (works behind Render, which sets the forwarded host/protocol).
+  public-url: ${PUBLIC_URL:}
   # Optional: path to the built Angular app (frontend/dist/frontend/browser) so one server serves both.
   web:
     static-dir: ${WEB_STATIC_DIR:}
@@ -46,11 +49,18 @@ app:
     from: ${MAIL_FROM:Halappa Foundation <info@halappafoundation.in>}
     # New enquiries are emailed here
     notify-to: ${MAIL_NOTIFY_TO:info@halappafoundation.in}
+  admin:
+    # "Forgot password?" on the admin login emails a 6-digit code here (needs the SMTP settings above).
+    recovery-email: ${ADMIN_RECOVERY_EMAIL:${MAIL_NOTIFY_TO:info@halappafoundation.in}}
   seed:
-    # First admin account, created only when there is none. Without SEED_ADMIN_PASSWORD a random
-    # one-time password is generated and printed once in the server log.
+    # First admin account, created once from these values when the database has no admin. Later restarts and deploys
+    # never change it; change the password in Admin -> Settings (needs the current one). Nothing is ever generated:
+    # without SEED_ADMIN_PASSWORD no admin is created.
     admin-username: ${SEED_ADMIN_USERNAME:admin}
     admin-password: ${SEED_ADMIN_PASSWORD:}
+    # Super admin (recharges wallets, sets prices, sees the audit log). Same rules: created once, never generated.
+    superadmin-username: ${SEED_SUPERADMIN_USERNAME:superadmin}
+    superadmin-password: ${SEED_SUPERADMIN_PASSWORD:}
 
   campaign:
     max-recipients: ${CAMPAIGN_MAX_RECIPIENTS:5000}
@@ -61,6 +71,17 @@ app:
 
 # WhatsApp Business Cloud API. Blank → bulk messages run in manual (wa.me) mode.
 whatsapp:
+  # meta = Meta Cloud API directly (WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID)
+  # msg91 = MSG91 WhatsApp (MSG91_AUTH_KEY below + MSG91_WHATSAPP_NUMBER); approved templates only
+  provider: ${WHATSAPP_PROVIDER:meta}
+  msg91:
+    # The WhatsApp number connected in MSG91 (with country code, e.g. 919900123406)
+    integrated-number: ${MSG91_WHATSAPP_NUMBER:}
+    # Template namespace from MSG91 → WhatsApp → Templates (only if your account shows one)
+    namespace: ${MSG91_WHATSAPP_NAMESPACE:}
+    # Secret for MSG91 → WhatsApp → Webhook (Inbound + Outbound):
+    # https://<backend>/api/webhooks/msg91-whatsapp?token=<this>. Blank = webhook switched off.
+    webhook-token: ${MSG91_WEBHOOK_TOKEN:}
   token: ${WHATSAPP_TOKEN:}
   phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
   api-version: ${WHATSAPP_API_VERSION:v21.0}

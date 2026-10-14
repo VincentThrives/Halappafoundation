@@ -53,7 +53,9 @@ public class AdminInboxController {
     public record Reply(String channel, String contact, String subject, String text) {}
 
     @PostMapping("/inbox/reply")
-    public InboxService.ReplyResult reply(@RequestBody Reply r) { return inbox.reply(r.channel(), r.contact(), r.subject(), r.text()); }
+    public InboxService.ReplyResult reply(@RequestBody Reply r, org.springframework.security.core.Authentication auth) {
+        return inbox.reply(r.channel(), r.contact(), r.subject(), r.text(), auth == null ? null : auth.getName());
+    }
 
     // ---------- Voucher check-in at the event ----------
 

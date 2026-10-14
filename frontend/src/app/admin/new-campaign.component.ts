@@ -5,7 +5,7 @@ import { AdminApi, EnquiryQuery, downloadBlob } from './admin-api.service';
 import { IconComponent } from '../core/icon.component';
 import { errMsg } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
-import { Channels, ImportResult } from '../core/models';
+import { Channels, ImportResult, WaTemplate, WalletInfo, rupees } from '../core/models';
 
 type ChannelKey = 'whatsapp' | 'email' | 'sms';
 type Source = 'excel' | 'given' | 'range' | 'all' | 'pasted';
@@ -70,13 +70,48 @@ export class NewCampaignComponent {
   message = DEFAULT_INVITE;
   templateName = '';
   templateLang = 'en';
+  /** The approved template's text (picked from the list, or pasted) and what fills its {{1}}, {{2}}… */
+  templateBody = '';
+  templateParams: string[] = [];
+  readonly templates = signal<WaTemplate[]>([]);
+  readonly templatesNote = signal('');
+  readonly templatesLoaded = signal(false);
+  readonly templatesLoading = signal(false);
+  /** True when MSG91 answered with the list (even an empty one); false = not listable here or an error. */
+  readonly templatesAvailable = signal(false);
   manual = false;
 
   readonly busy = signal(false);
   readonly error = signal('');
 
+  // ---------- wallet ----------
+  readonly rupees = rupees;
+  readonly wallet = signal<WalletInfo | null>(null);
+  /** Automatic sends through a provider are charged; "send by hand" WhatsApp links are free. */
+  private automatic(): boolean {
+    const c = this.ch();
+    if (!c) return false;
+    if (this.channel === 'whatsapp') return c.whatsappApi && !this.manual;
+    return this.channel === 'email' ? c.email : c.sms;
+  }
+  rate(): number {
+    const w = this.wallet();
+    if (!w || w.superAdmin || !this.automatic()) return 0;
+    return this.channel === 'whatsapp' ? w.rates.whatsappPaise : this.channel === 'sms' ? w.rates.smsPaise : w.rates.emailPaise;
+  }
+  paid(): boolean { return this.rate() > 0; }
+  /** Why this send costs nothing (shown instead of the cost line). */
+  freeReason(): string {
+    if (this.channel === 'whatsapp' && (this.manual || !this.ch()?.whatsappApi)) return 'sending by hand with WhatsApp links';
+    if (!this.automatic()) return 'this channel isn\'t connected';
+    return 'the price for this channel is ₹0';
+  }
+  costPaise(): number { return this.estimate() * this.rate(); }
+  short(): boolean { const w = this.wallet(); return !!w && this.paid() && this.costPaise() > w.balancePaise; }
+
   constructor() {
-    this.api.channels().subscribe(c => this.ch.set(c));
+    this.api.wallet().subscribe({ next: w => this.wallet.set(w), error: () => {} });
+    this.api.channels().subscribe(c => { this.ch.set(c); if (c.whatsappApi) this.loadTemplates(); });
     if (this.given?.ids) this.enquiryCount.set(this.given.ids.length);
     else if (this.given?.filter) this.api.enquiries(this.given.filter, 0, 1).subscribe(p => this.enquiryCount.set(p.total));
   }
@@ -89,10 +124,99 @@ export class NewCampaignComponent {
   status(c: ChannelKey) {
     const s = this.ch();
     if (!s) return '…';
-    if (c === 'whatsapp') return s.whatsappApi ? 'Connected (automatic)' : 'Manual mode (API not connected)';
+    if (c === 'whatsapp') return s.whatsappApi ? (s.whatsappProvider === 'msg91' ? 'Connected via MSG91 (automatic)' : 'Connected (automatic)') : 'Manual mode (API not connected)';
     return (c === 'email' ? s.email : s.sms) ? 'Connected' : 'Not connected';
   }
   pickChannel(c: ChannelKey) { this.channel = c; this.error.set(''); }
+
+  // ---------- WhatsApp template ----------
+  loadTemplates() {
+    this.templatesLoading.set(true);
+    this.api.whatsappTemplates().subscribe({
+      next: r => {
+        this.templates.set(r.templates ?? []);
+        this.templatesAvailable.set(!!r.available);
+        this.templatesNote.set(r.available ? (r.templates?.length ? '' : 'No approved templates found in MSG91 yet.') : r.message ?? '');
+        this.templatesLoaded.set(true);
+        this.templatesLoading.set(false);
+      },
+      error: e => {
+        this.templates.set([]);
+        this.templatesAvailable.set(false);
+        this.templatesNote.set(errMsg(e, "Couldn't load the templates") + '. Type the name and paste the text instead.');
+        this.templatesLoaded.set(true);
+        this.templatesLoading.set(false);
+      },
+    });
+  }
+
+  /** "kn" → "Kannada" for the dropdown. */
+  langName(code: string): string {
+    const names: Record<string, string> = { en: 'English', en_us: 'English (US)', en_gb: 'English (UK)', kn: 'Kannada', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', mr: 'Marathi' };
+    return names[(code ?? '').toLowerCase()] ?? code;
+  }
+
+  /** Text came from MSG91's list, so it's the approved wording and is shown read-only. */
+  fromList(): boolean { return this.templates().some(t => t.name === this.templateName && t.language === this.templateLang) && !!this.templateBody; }
+
+  /** Picked from the list: fills name, language and text, and suggests name/voucher for {{1}}/{{2}}. */
+  chooseTemplate(key: string) {
+    const t = this.templates().find(x => x.name + '|' + x.language === key);
+    if (!t) { this.templateName = ''; this.templateBody = ''; this.templateParams = []; this.templateHeader = ''; return; }
+    this.templateName = t.name;
+    this.templateLang = t.language || 'en';
+    this.templateBody = t.body ?? '';
+    this.templateHeader = (t.header ?? '').toUpperCase();
+    if (this.templateHeader !== 'IMAGE') this.photo.set(null);
+    this.templateParams = [];
+    this.syncParams();
+  }
+
+  // ---------- photo at the top (templates with an IMAGE header) ----------
+  /** The chosen template's header type; 'IMAGE' means every message needs a photo. */
+  templateHeader = '';
+  readonly photo = signal<{ url: string; name: string } | null>(null);
+  readonly uploadingPhoto = signal(false);
+  readonly photoError = signal('');
+
+  needsPhoto(): boolean { return this.templateMode() && this.templateHeader === 'IMAGE'; }
+
+  /** WhatsApp header photos: JPG or PNG, up to 5 MB. Uploaded to the server, which gives a public link. */
+  pickPhoto(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    this.photoError.set('');
+    if (!['image/jpeg', 'image/png'].includes(file.type)) { this.photoError.set('WhatsApp accepts JPG or PNG photos only.'); return; }
+    if (file.size > 5 * 1024 * 1024) { this.photoError.set('The photo is larger than 5 MB (WhatsApp\'s limit); use a smaller one.'); return; }
+    this.uploadingPhoto.set(true);
+    this.api.uploadHeaderImage(file).subscribe({
+      next: r => { this.uploadingPhoto.set(false); this.photo.set({ url: r.url, name: file.name }); },
+      error: err => { this.uploadingPhoto.set(false); this.photoError.set(errMsg(err, "Couldn't upload the photo")); },
+    });
+  }
+  removePhoto() { this.photo.set(null); }
+  templateKey() { return this.templateName ? this.templateName + '|' + this.templateLang : ''; }
+
+  /** How many {{n}} the template text has. */
+  varCount(): number { return templateVariables(this.templateBody); }
+  varSlots(): number[] { return Array.from({ length: this.varCount() }, (_, i) => i); }
+
+  /** One value per {{n}}: {{1}} = name and {{2}} = voucher by default, the rest typed by the admin. */
+  syncParams() {
+    const n = this.varCount();
+    const p = this.templateParams.slice(0, n);
+    while (p.length < n) p.push(p.length === 0 ? '{name}' : p.length === 1 && this.voucherOn ? '{voucher}' : '');
+    this.templateParams = p;
+  }
+  setParam(i: number, v: string) { const p = [...this.templateParams]; p[i] = v; this.templateParams = p; }
+  tplVar(i: number) { return '{{' + (i + 1) + '}}'; }
+
+  /** WhatsApp through the API with a template: the wording is fixed by WhatsApp, only the {{n}} values change. */
+  templateMode(): boolean {
+    return this.channel === 'whatsapp' && !!this.ch()?.whatsappApi && !this.manual && !!this.templateName.trim();
+  }
 
   // ---------- recipients ----------
   pick(e: Event) { const f = (e.target as HTMLInputElement).files?.[0]; if (f) this.upload(f); }
@@ -153,7 +277,14 @@ export class NewCampaignComponent {
     return (this.source === 'excel' ? this.imported()?.rows[0]?.name : '') || 'Ramesh';
   }
 
-  preview() { return personalise(this.message, this.firstName(), this.sampleVoucher()); }
+  preview() {
+    if (this.templateMode() && this.templateBody.trim()) {
+      const values = this.templateParams.map(v => personalise(v, this.firstName(), this.sampleVoucher()) || '…');
+      return fillTemplate(this.templateBody, values);
+    }
+    if (this.templateMode()) return '[template ' + this.templateName.trim() + '] — paste its text above to see the full message';
+    return personalise(this.message, this.firstName(), this.sampleVoucher());
+  }
   previewSubject() { return personalise(this.subject, this.firstName(), this.sampleVoucher()); }
 
   // ---------- send ----------
@@ -161,6 +292,10 @@ export class NewCampaignComponent {
     const b: Record<string, unknown> = {
       name: this.name, channel: this.channel, subject: this.subject, message: this.message,
       template: this.channel === 'whatsapp' && !this.manual ? this.templateName : '', templateLang: this.templateLang,
+      templateBody: this.templateMode() ? this.templateBody : '',
+      templateParams: this.templateMode() && this.templateBody.trim() ? this.templateParams : [],
+      templateHeader: this.templateMode() ? this.templateHeader : '',
+      headerImage: this.needsPhoto() ? this.photo()?.url ?? '' : '',
       manual: this.manual, pasted: this.pasted,
       voucher: this.voucherOn
         ? { mode: this.voucherMode, prefix: this.prefix, start: this.start, digits: this.digits, fixed: this.fixed }
@@ -182,11 +317,21 @@ export class NewCampaignComponent {
     if (this.source === 'excel' && !this.imported()) { this.error.set('Import an Excel file first.'); return; }
     if (this.source === 'range' && this.rangeFrom && this.rangeTo && this.rangeFrom > this.rangeTo) { this.error.set('From date must be on or before To date.'); return; }
     if (this.source === 'pasted' && !this.pasted.trim()) { this.error.set('Paste at least one number or email.'); return; }
+    if (this.needsPhoto() && !this.photo()) { this.error.set('This template shows a photo at the top: upload the photo first.'); return; }
+    if (this.templateMode() && this.templateBody.trim()) {
+      const missing = this.templateParams.findIndex(v => !v.trim());
+      if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }
+    }
+    if (this.short()) {
+      this.error.set(`Not enough balance: this send costs ${rupees(this.costPaise())} and the wallet has ${rupees(this.wallet()!.balancePaise)}. Ask the super admin to recharge.`);
+      return;
+    }
     if (this.estimate() > this.max()) { this.error.set(`That's more than ${this.max()} people. Split the list into smaller sends.`); return; }
     const via = { whatsapp: 'WhatsApp', email: 'email', sms: 'SMS' }[this.channel];
     const ok = await this.confirmer.ask({
       title: `Send to ${this.estimate()} people?`, detail: this.name, icon: 'send', confirmText: 'Send now',
-      message: `This goes out by ${via}${this.voucherOn ? ', each with their own entrance voucher' : ''}. Messages that have been sent can't be taken back.`,
+      message: `This goes out by ${via}${this.voucherOn ? ', each with their own entrance voucher' : ''}. Messages that have been sent can't be taken back.`
+        + (this.paid() ? ` ${rupees(this.costPaise())} will be taken from the wallet now; anything that fails is refunded.` : ''),
     });
     if (!ok) return;
     this.busy.set(true);
@@ -195,6 +340,20 @@ export class NewCampaignComponent {
       error: e => { this.busy.set(false); this.error.set(errMsg(e)); },
     });
   }
+}
+
+/** Highest {{n}} in a WhatsApp template text. */
+export function templateVariables(body: string): number {
+  let max = 0;
+  for (const m of (body ?? '').matchAll(/\{\{\s*(\d+)\s*\}\}/g)) max = Math.max(max, Number(m[1]));
+  return max;
+}
+
+/** Puts the values into {{1}}, {{2}}… (same as the server). */
+export function fillTemplate(body: string, values: string[]): string {
+  let out = body ?? '';
+  values.forEach((v, i) => { out = out.replaceAll('{{' + (i + 1) + '}}', v); });
+  return out;
 }
 
 /** Same rules as the server: fills {name}/{voucher} and tidies the gap a blank name leaves. */

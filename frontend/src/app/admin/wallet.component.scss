@@ -1,0 +1,14 @@
+.wallet-top { display: grid; grid-template-columns: minmax(240px, 1fr) 2fr; gap: 16px; margin-bottom: 16px; }
+.balance { display: grid; gap: 6px; align-content: center; background: var(--maroon-grad); color: #fff; border: 0; }
+.balance small { color: var(--g-300); text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; }
+.balance strong { font-family: var(--font-head); font-size: 2.6rem; line-height: 1.1; color: var(--g-300); }
+.balance .muted { color: rgba(255,255,255,.75); }
+.balance.low strong { color: #ffd2d2; }
+.prices small { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; }
+.prices ul { list-style: none; margin: 10px 0; padding: 0; display: flex; gap: 22px; flex-wrap: wrap; }
+.prices li { display: flex; align-items: center; gap: 8px; }
+.prices li app-icon { width: 18px; height: 18px; color: var(--m-700); }
+.prices b { font-size: 1.15rem; color: var(--m-800); }
+.prices .muted { font-size: .88rem; }
+h2 { margin: 0; font-size: 1.25rem; }
+@media (max-width: 800px) { .wallet-top { grid-template-columns: 1fr; } }

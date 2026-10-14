@@ -435,24 +435,78 @@ describe('Admin: Settings', () => {
 });
 
 // =====================================================================
+describe('Admin: menu by role', () => {
+  function make(isSuper: boolean, balancePaise = 12345) {
+    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 0 })),
+      wallet: jasmine.createSpy('wallet').and.returnValue(of({ balancePaise })) };
+    setup(a, [{ provide: AuthService, useValue: { isSuper, user: () => isSuper ? 'owner' : 'admin', logout() {} } }]);
+    const f = TestBed.createComponent(AdminShellComponent);
+    f.detectChanges();
+    return { f, a, el: f.nativeElement as HTMLElement };
+  }
+  const labels = (el: HTMLElement) => [...el.querySelectorAll('.side nav a')].map(x => x.textContent!.replace(/\d+/g, '').trim());
+
+  it('admins see Wallet in the menu and their balance in the top bar', () => {
+    const { f, el } = make(false);
+    expect(labels(el)).toContain('Wallet');
+    expect(labels(el)).not.toContain('Super admin');
+    const chip = el.querySelector('.wallet-chip') as HTMLAnchorElement;
+    expect(chip.textContent!.trim()).toBe('₹123.45');
+    expect(chip.getAttribute('href')).toBe('/admin/wallet');
+    expect(chip.classList.contains('low')).toBeFalse();
+    expect(el.querySelector('.super-tag')).toBeNull();
+    f.destroy();
+  });
+
+  it('an empty wallet shows in red', () => {
+    const { f, el } = make(false, 0);
+    expect(el.querySelector('.wallet-chip')!.classList.contains('low')).toBeTrue();
+    f.destroy();
+  });
+
+  it('the super admin sees Super admin in the menu, a tag, and no wallet', () => {
+    const { f, a, el } = make(true);
+    expect(labels(el)).toContain('Super admin');
+    expect(labels(el)).not.toContain('Wallet');
+    expect(el.querySelector('.wallet-chip')).toBeNull();
+    expect(el.querySelector('.super-tag')!.textContent).toContain('Super admin');
+    expect(a.wallet).not.toHaveBeenCalled();
+    f.destroy();
+  });
+});
+
 describe('Admin: menu', () => {
   it('shows every section and the unread badge on Inbox', () => {
-    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 4 })) };
-    const auth = { user: () => 'admin', logout: jasmine.createSpy('logout') };
+    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 4 })), wallet: jasmine.createSpy('wallet').and.returnValue(of({ balancePaise: 12345 })) };
+    const auth = { isSuper: false, user: () => 'admin', logout: jasmine.createSpy('logout') };
     setup(a, [{ provide: AuthService, useValue: auth }]);
     const f = TestBed.createComponent(AdminShellComponent);
     f.detectChanges();
     const labels = [...f.nativeElement.querySelectorAll('.side nav a')].map((x: any) => x.textContent.replace(/\d+/g, '').trim());
-    expect(labels).toEqual(['Dashboard', 'Enquiries', 'Inbox', 'Bulk messages', 'Voucher check-in', 'Press & Views', 'Gallery', 'Timeline', 'Settings']);
+    expect(labels).toEqual(['Dashboard', 'Enquiries', 'Inbox', 'Bulk messages', 'Voucher check-in', 'Wallet', 'Press & Views', 'Gallery', 'Timeline', 'Settings']);
     expect(f.nativeElement.querySelector('.badge').textContent).toBe('4');
     f.nativeElement.querySelector('.foot button').click();
-    expect(auth.logout).toHaveBeenCalled();
+    expect(auth.logout).toHaveBeenCalledWith(true);
+    f.destroy();
+  });
+
+  it('top bar on every admin page shows who is signed in and a Sign out button', () => {
+    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 0 })), wallet: jasmine.createSpy('wallet').and.returnValue(of({ balancePaise: 12345 })) };
+    const auth = { isSuper: false, user: () => 'halappaadmin', logout: jasmine.createSpy('logout') };
+    setup(a, [{ provide: AuthService, useValue: auth }]);
+    const f = TestBed.createComponent(AdminShellComponent);
+    f.detectChanges();
+    expect(f.nativeElement.querySelector('.topbar .who').textContent.trim()).toBe('halappaadmin');
+    const btn: HTMLButtonElement = f.nativeElement.querySelector('.topbar .signout');
+    expect(btn.textContent!.trim()).toBe('Sign out');
+    btn.click();
+    expect(auth.logout).toHaveBeenCalledWith(true);
     f.destroy();
   });
 
   it('no badge when nothing is unread, and the phone menu toggles', () => {
-    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 0 })) };
-    setup(a, [{ provide: AuthService, useValue: { user: () => 'admin', logout() {} } }]);
+    const a = { unread: jasmine.createSpy('unread').and.returnValue(of({ unread: 0 })), wallet: jasmine.createSpy('wallet').and.returnValue(of({ balancePaise: 12345 })) };
+    setup(a, [{ provide: AuthService, useValue: { isSuper: false, user: () => 'admin', logout() {} } }]);
     const f = TestBed.createComponent(AdminShellComponent);
     f.detectChanges();
     expect(f.nativeElement.querySelector('.badge')).toBeNull();

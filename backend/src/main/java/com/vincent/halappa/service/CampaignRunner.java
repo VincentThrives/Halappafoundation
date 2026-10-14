@@ -31,6 +31,7 @@ public class CampaignRunner {
     private final SmsService sms;
     private final TaskExecutor executor;
     private final Set<Long> active = ConcurrentHashMap.newKeySet();
+    @org.springframework.beans.factory.annotation.Autowired private WalletService wallet;
 
     @Value("${app.campaign.whatsapp-delay-ms:60}") long whatsappDelay;
     @Value("${app.campaign.email-delay-ms:300}") long emailDelay;
@@ -67,6 +68,7 @@ public class CampaignRunner {
                 c.setStatus("done");
                 c.setFinishedAt(LocalDateTime.now());
                 campaigns.save(c);
+                wallet.settle(c); // refund messages that failed
                 log.info("Campaign #{} finished", id);
                 return;
             }
@@ -85,12 +87,9 @@ public class CampaignRunner {
 
     private void sendWhatsApp(Campaign c, Message m) {
         try {
-            List<String> params = new ArrayList<>();
-            if (c.getTemplate() != null) {
-                params.add(m.getName() == null || m.getName().isBlank() ? "Friend" : m.getName());
-                if (m.getVoucher() != null) params.add(m.getVoucher());
-            }
-            String id = whatsapp.send(m.getContact(), m.getBody(), c.getTemplate(), c.getTemplateLang(), params);
+            List<String> params = c.getTemplate() == null ? List.of()
+                    : Contacts.templateParams(c.getTemplateParams(), m.getName(), m.getVoucher());
+            String id = whatsapp.send(m.getContact(), m.getBody(), c.getTemplate(), c.getTemplateLang(), params, c.getHeaderImage());
             done(m, "sent", id, null);
         } catch (Exception e) {
             done(m, "failed", null, e.getMessage());

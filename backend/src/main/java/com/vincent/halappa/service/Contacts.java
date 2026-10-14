@@ -27,6 +27,36 @@ public final class Contacts {
     }
 
     /** Fills {name} and {voucher}; a blank name leaves no stray spaces or commas. */
+    /**
+     * Values for a WhatsApp template's {{1}}, {{2}}… for one person. Each value may contain {name} and {voucher}.
+     * No values configured = the classic invitation: {{1}} name, {{2}} voucher (when there is one).
+     * WhatsApp rejects empty values, so a missing name becomes "Friend" and anything else empty becomes "-".
+     */
+    public static List<String> templateParams(List<String> values, String name, String voucher) {
+        String n = name == null || name.isBlank() ? "Friend" : name.trim();
+        List<String> src = values == null || values.isEmpty()
+                ? (voucher == null ? List.of("{name}") : List.of("{name}", "{voucher}"))
+                : values;
+        return src.stream().map(v -> { String s = personalise(v, n, voucher); return s.isBlank() ? "-" : s; }).toList();
+    }
+
+    /** The template text with {{1}}, {{2}}… replaced by the given values (unfilled ones are left as they are). */
+    public static String fillTemplate(String body, List<String> values) {
+        if (body == null) return "";
+        String out = body;
+        for (int i = 0; i < values.size(); i++) out = out.replace("{{" + (i + 1) + "}}", values.get(i));
+        return out;
+    }
+
+    /** Highest {{n}} used in a template text (0 when none). */
+    public static int templateVariables(String body) {
+        int max = 0;
+        if (body == null) return 0;
+        var m = java.util.regex.Pattern.compile("\\{\\{\\s*(\\d+)\\s*}}").matcher(body);
+        while (m.find()) max = Math.max(max, Integer.parseInt(m.group(1)));
+        return max;
+    }
+
     public static String personalise(String msg, String name, String voucher) {
         if (msg == null) return "";
         String n = name == null || name.isBlank() ? "" : name.trim();

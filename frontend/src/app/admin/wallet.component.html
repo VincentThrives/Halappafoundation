@@ -1,0 +1,48 @@
+<div class="head">
+  <div><h1>Wallet</h1><p>Money for WhatsApp, SMS and email sends. Recharges are added by the super admin.</p></div>
+  <button class="btn btn-ghost btn-sm" (click)="refresh()"><app-icon name="history" /> Refresh</button>
+</div>
+
+@if (info(); as w) {
+  <div class="wallet-top">
+    <div class="balance card" [class.low]="w.balancePaise <= 0">
+      <small>Available balance</small>
+      <strong>{{ rupees(w.balancePaise) }}</strong>
+      @if (w.superAdmin) { <span class="muted">Super admin sends aren't charged.</span> }
+      @else if (w.balancePaise <= 0) { <span class="muted">Ask the super admin to recharge before sending.</span> }
+    </div>
+    <div class="card prices">
+      <small>Price per message</small>
+      <ul>
+        <li><app-icon name="whatsapp" /> WhatsApp <b>{{ rupees(w.rates.whatsappPaise) }}</b></li>
+        <li><app-icon name="phone" /> SMS <b>{{ rupees(w.rates.smsPaise) }}</b></li>
+        <li><app-icon name="mail" /> Email <b>{{ rupees(w.rates.emailPaise) }}</b></li>
+      </ul>
+      <span class="muted">A send is paid in full before it starts; messages that fail or are cancelled are refunded. "Send by hand" WhatsApp links are free.</span>
+    </div>
+  </div>
+}
+
+<div class="card stack">
+  <h2>History</h2>
+  <div class="filters">
+    <select class="input" [(ngModel)]="f.type" (ngModelChange)="load(0)" aria-label="Type">
+      <option value="">Everything</option>
+      <option value="RECHARGE">Recharges</option>
+      <option value="SEND">Bulk sends</option>
+      <option value="REPLY">Inbox replies</option>
+      <option value="REFUND">Refunds</option>
+      <option value="DEDUCT">Deductions</option>
+    </select>
+    <input class="input" type="date" [(ngModel)]="f.from" (ngModelChange)="load(0)" aria-label="From">
+    <input class="input" type="date" [(ngModel)]="f.to" (ngModelChange)="load(0)" aria-label="To">
+  </div>
+  <app-wallet-log [items]="items()" />
+  @if (pages() > 1) {
+    <div class="pager">
+      <button class="btn btn-ghost btn-sm" [disabled]="page === 0" (click)="load(page - 1)">‹ Newer</button>
+      <span>Page {{ page + 1 }} of {{ pages() }}</span>
+      <button class="btn btn-ghost btn-sm" [disabled]="page + 1 >= pages()" (click)="load(page + 1)">Older ›</button>
+    </div>
+  }
+</div>

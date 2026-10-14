@@ -27,6 +27,12 @@ public class Campaign implements Sequenced {
     private String message;
     private String template;
     private String templateLang;
+    /** The approved template's text with {{1}}, {{2}}…, kept so the log shows what each person received. */
+    private String templateBody;
+    /** What fills {{1}}, {{2}}… for everyone: may contain {name} and {voucher}. Null = name, voucher. */
+    private java.util.List<String> templateParams;
+    /** Public link of the photo shown at the top of each message (templates with an IMAGE header). */
+    private String headerImage;
 
     /** none | auto | excel | fixed */
     private String voucherMode = "none";
@@ -39,6 +45,13 @@ public class Campaign implements Sequenced {
     private String status;
 
     private String createdBy;
+
+    /** Wallet charged for this send (null for manual sends and super admin sends) and the price per message. */
+    private String chargedTo;
+    private long ratePaise;
+    /** Messages paid for so far, and how many of those were refunded (failed or cancelled). */
+    private int chargedCount;
+    private int refundedCount;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime finishedAt;
 }

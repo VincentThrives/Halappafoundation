@@ -47,8 +47,15 @@ export interface CampaignStats {
 
 export interface CampaignView { campaign: Campaign; stats: CampaignStats; }
 
+/** An approved WhatsApp template: full text with {{1}}, {{2}}… and how many there are. */
+/** header: 'IMAGE' (needs a photo with every send), 'TEXT', 'VIDEO', 'DOCUMENT' or null. */
+export interface WaTemplate { name: string; language: string; status: string; body: string | null; variables: number; header?: string | null; }
+export interface WaTemplates { available: boolean; templates: WaTemplate[]; message?: string; }
+
 export interface Channels {
   whatsappApi: boolean; whatsappInbound: boolean; email: boolean; emailInbound: boolean;
+  /** "meta" or "msg91"; MSG91 sends approved templates only. */
+  whatsappProvider?: string; whatsappTemplatesOnly?: boolean;
   sms: boolean; smsInbound: boolean; maxRecipients: number;
 }
 
@@ -65,3 +72,22 @@ export interface InboxThread {
 }
 
 export type Settings = Record<string, string>;
+
+// ---------- Wallet ----------
+export interface WalletRates { whatsappPaise: number; smsPaise: number; emailPaise: number; updatedBy?: string; updatedAt?: string; }
+export interface WalletInfo { username: string; superAdmin: boolean; balancePaise: number; rates: WalletRates; }
+export interface WalletAdmin { username: string; role: 'ADMIN' | 'SUPER_ADMIN'; walletPaise: number; }
+/** One line of the wallet audit log. Amounts in paise; negative = money out. */
+export interface WalletTxn {
+  id: number; admin: string; type: 'RECHARGE' | 'DEDUCT' | 'SEND' | 'REPLY' | 'REFUND' | 'RATES';
+  amountPaise: number; balanceAfterPaise: number; channel?: string; campaignId?: number; campaignName?: string;
+  messages: number; ratePaise: number; note?: string; by?: string; at: string;
+}
+export interface WalletLogQuery { admin?: string; type?: string; from?: string; to?: string; }
+
+/** 12345 paise → "₹123.45" (Indian digit grouping). */
+export function rupees(paise: number | null | undefined): string {
+  const p = Number(paise ?? 0);
+  const sign = p < 0 ? '-' : '';
+  return sign + '₹' + (Math.abs(p) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

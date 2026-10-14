@@ -53,14 +53,14 @@
   .pos-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .pos { padding: 14px 12px; border-radius: 14px; }
   .pos:hover { transform: none; }
-  .tag { font-size: .6rem; padding: 2px 8px; margin-bottom: 8px; }
+  .tag { font-size: .7rem; padding: 3px 9px; margin-bottom: 8px; }
   .pos h3 { font-size: 1rem; margin-bottom: 4px; }
   .pos p { font-size: .78rem; line-height: 1.45; }
   .reach-grid { gap: 8px; flex-wrap: nowrap; }
   .ring { width: 33%; flex: 1; }
   .ring svg { width: 100%; height: auto; }
   .ring strong { top: 30%; font-size: 1.9rem; }
-  .ring small { top: 58%; font-size: .62rem; }
+  .ring small { top: 58%; font-size: .7rem; line-height: 1.25; }
   .ring b { font-size: .78rem; margin-top: 6px; line-height: 1.3; }
   .legacy p { font-size: 1rem; }
 }

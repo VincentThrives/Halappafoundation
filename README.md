@@ -32,8 +32,29 @@ does the same for uploaded photos (`<img [src]="p.image | media">`). The backend
 
 Open http://localhost:4210. Admin panel: http://localhost:4210/admin (or **Sign in** in the site's top bar).
 The first admin account is created on first start from `SEED_ADMIN_USERNAME` (default `admin`) and `SEED_ADMIN_PASSWORD`.
-If no password is set, a random one-time password is printed once in the server log. There is **no password in the code**.
-Change the password under **Admin → Settings** after the first login.
+This happens **once**, only when the database has no admin. After that the password is **fixed**: restarts and deploys never
+change or regenerate it. The only way to change it is **Admin → Settings → Change password** (needs the current password).
+No password is ever generated and none is in the code: without `SEED_ADMIN_PASSWORD` no admin is created (the server log says so).
+
+**Forgot password?** on the admin login emails a 6-digit code to `ADMIN_RECOVERY_EMAIL` (default: the enquiries address,
+info@halappafoundation.in); enter it with a new password. The code works for 10 minutes and once, 5 wrong tries cancel it,
+requests are rate-limited, and the answer never reveals whether a username exists. Needs the SMTP settings (`MAIL_*`).
+**Sign out** is in the top bar of every admin page (and at the bottom of the menu).
+
+## Super admin and wallets
+
+The **super admin** signs in only at `/superadmin` (not linked anywhere; the normal admin login refuses the super admin
+account and `/superadmin` refuses admins, both with "Wrong username or password"). The super admin can:
+
+- **Recharge** each admin's wallet (₹, with a note such as a UPI reference) or **deduct** from it;
+- set the **price per message** for WhatsApp, SMS and Email (₹0 = free; starts at ₹0);
+- read the **audit log** of every wallet movement (who, when, which send, messages × price, balance after),
+  filterable by admin, type and dates. Admins see their own lines under **Wallet**.
+
+Admins see their balance in the top bar. An automatic bulk send is paid **in full before it starts** (people × price)
+and refused if the wallet doesn't cover it; messages that **fail or are cancelled are refunded** when the send ends
+(a retry pays again for the retried ones). An Inbox reply sent by the website costs one message and is refunded if
+it isn't sent. "Send by hand" WhatsApp links are free, and the super admin's own sends are logged but not charged.
 
 ## What the admin can do
 
@@ -50,11 +71,22 @@ Change the password under **Admin → Settings** after the first login.
 
 | Channel | Sending | Receiving | Server settings |
 |---|---|---|---|
-| WhatsApp | Without keys: manual links ("Open next"). With Meta Cloud API: automatic, ~15/second | Meta webhook → `https://<site>/api/webhooks/whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` |
+| WhatsApp (Meta) | Without keys: manual links ("Open next"). With Meta Cloud API: automatic, ~15/second | Meta webhook → `https://<site>/api/webhooks/whatsapp` | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` |
+| WhatsApp (MSG91) | Bulk: automatic through MSG91 with an **approved template** (`{{1}}` = name, `{{2}}` = voucher). Inbox replies: free text from the website (WhatsApp allows it within 24 h of the person's last message) | MSG91 → WhatsApp → Webhook (Inbound **and** Outbound) → `https://<backend>/api/webhooks/msg91-whatsapp?token=MSG91_WEBHOOK_TOKEN`: replies land in the Inbox, sent/delivered/read/failed update each message | `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` (same as SMS), `MSG91_WHATSAPP_NUMBER`, `MSG91_WEBHOOK_TOKEN`, optional `MSG91_WHATSAPP_NAMESPACE` |
 | Email | SMTP | IMAP check every 2 minutes | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`, `MAIL_IMAP_HOST` |
 | SMS | MSG91 Flow API, 100 per request | Provider's inbound webhook → `/api/webhooks/sms?token=…` | `SMS_PROVIDER=msg91`, `MSG91_AUTH_KEY`, `MSG91_FLOW_ID`, `SMS_INBOUND_TOKEN` |
 
 Important:
+- **Using MSG91 for WhatsApp**: connect your WhatsApp number in MSG91 → WhatsApp, create the invitation template there and
+  wait for approval, then set `WHATSAPP_PROVIDER=msg91`, `MSG91_AUTH_KEY` and `MSG91_WHATSAPP_NUMBER` (e.g. `919900123406`) and restart.
+  In **Bulk messages** pick the template from the list (loaded from MSG91; if it can't be loaded, type the name and paste its text).
+  The full approved text is shown; fill each blank with the person's name, their voucher or your own text (date, venue…),
+  and the preview shows exactly what the first person receives. Bulk sends without a template are refused.
+  Templates with a **photo header** show a "Photo at the top" box: upload one JPG/PNG (up to 5 MB) for the send; WhatsApp
+  downloads it from the backend's public link, so the backend must be reachable on https (set `PUBLIC_URL` if links come out wrong).
+  For replies and delivery ticks, set `MSG91_WEBHOOK_TOKEN` to a long random value and paste
+  `https://<backend>/api/webhooks/msg91-whatsapp?token=<that value>` into MSG91 → WhatsApp → Webhook for Inbound and Outbound.
+  Both MSG91 and the website can be used to reply: messages sent from MSG91's own panel are not shown in the site's Inbox.
 - **WhatsApp invitations need an approved template** in Meta (free text only reaches people who messaged in the last 24 h).
   In the template, `{{1}}` = name and `{{2}}` = voucher. To send 5000 in a day the number needs Meta's 10K messaging tier.
   A number on the Cloud API can't be used in the normal WhatsApp app at the same time.
@@ -66,11 +98,11 @@ Important:
 ## Tests
 
 ```bash
-# Backend: 174 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
+# Backend: 229 tests (unit + API integration on embedded MongoDB, downloaded on first run, fake WhatsApp/MSG91 server, real in-process mail server)
 # Coverage report: backend/target/site/jacoco/index.html (95% of lines)
 cd backend && ./mvnw test
 
-# Frontend: 188 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
+# Frontend: 243 tests in headless Chrome (set CHROME_BIN if Chrome isn't found); add --code-coverage for frontend/coverage (93% of lines)
 cd frontend && npm run test:ci
 ```
 
@@ -94,12 +126,17 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `MONGODB_URI` | MongoDB Atlas connection string, e.g. `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority` |
 | `MONGODB_DATABASE` | Database name (default `halappa`). Ids are numeric and come from the `counters` collection |
 | `JWT_SECRET` | 64+ random characters (required in production; without it sign-ins end on every restart) |
-| `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | First admin only (set a strong password before the first start) |
+| `SEED_SUPERADMIN_USERNAME`, `SEED_SUPERADMIN_PASSWORD` | Creates the super admin once (default username `superadmin`); same rules as the admin: never generated, never changed by deploys. Sign in at `/superadmin` |
+| `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | Creates the first admin once, on a database with no admin. Required before the first start; later changes to it have no effect (the stored password stays fixed). Keep the database (`MONGODB_URI`) the same across deploys |
+| `ADMIN_RECOVERY_EMAIL` | Where "Forgot password?" codes are emailed (default `MAIL_NOTIFY_TO`, then info@halappafoundation.in) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |
+| `PUBLIC_URL` | Optional: the backend's public https address, used in WhatsApp photo links (default: taken from each request) |
 | `WEB_STATIC_DIR` | Path to `frontend/dist/frontend/browser` to serve the site from the same server |
 | `CORS_ORIGINS` | The website's address(es), comma-separated, e.g. `https://halappafoundation.in` (the site calls the API at `apiUrl` from `environment.prod.ts`) |
 | `MAIL_*`, `MAIL_IMAP_*` | Sending and reading email (see table above) |
-| `WHATSAPP_*` | WhatsApp Cloud API + webhook |
+| `WHATSAPP_PROVIDER` | `meta` (default) or `msg91` |
+| `WHATSAPP_*` | WhatsApp Cloud API + webhook (Meta) |
+| `MSG91_WHATSAPP_NUMBER`, `MSG91_WHATSAPP_NAMESPACE`, `MSG91_WEBHOOK_TOKEN` | WhatsApp through MSG91 (uses `MSG91_AUTH_KEY`); the token protects the reply/status webhook |
 | `SMS_PROVIDER`, `MSG91_*`, `SMS_INBOUND_TOKEN` | SMS |
 | `CAMPAIGN_MAX_RECIPIENTS` | Default 5000 per send |
 

@@ -41,9 +41,10 @@ public class SecurityConfig {
             .headers(h -> h.frameOptions(f -> f.sameOrigin()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/public/**", "/api/auth/login", "/actuator/health").permitAll()
+                .requestMatchers("/api/public/**", "/api/auth/login", "/api/auth/forgot", "/api/auth/reset", "/actuator/health").permitAll()
                 // Provider callbacks; each checks its own signature / token.
                 .requestMatchers("/api/webhooks/**").permitAll()
+                .requestMatchers("/api/super/**").hasRole("SUPER_ADMIN")
                 .requestMatchers("/api/**").hasRole("ADMIN")
                 // Everything else is the Angular app, images and uploads.
                 .anyRequest().permitAll())

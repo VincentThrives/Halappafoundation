@@ -7,7 +7,7 @@ import { AdminApi } from './admin-api.service';
 import { EnquiriesComponent } from './enquiries.component';
 import { LoginComponent } from './login.component';
 import { DashboardComponent } from './dashboard.component';
-import { AuthService, adminGuard } from '../core/auth.service';
+import { AuthService, adminGuard, superGuard } from '../core/auth.service';
 import { routes } from '../app.routes';
 import { stubIntersectionObserver } from '../testing';
 
@@ -196,7 +196,7 @@ describe('Admin: sign in page', () => {
     f.componentInstance.username = 'admin';
     f.componentInstance.password = 'pw';
     f.componentInstance.submit();
-    expect(auth.login).toHaveBeenCalledWith('admin', 'pw');
+    expect(auth.login).toHaveBeenCalledWith('admin', 'pw', false);
     expect(router.navigateByUrl).toHaveBeenCalledWith('/admin');
   });
 
@@ -207,6 +207,144 @@ describe('Admin: sign in page', () => {
     f.componentInstance.submit();
     expect(f.componentInstance.error()).toBe('Wrong username or password');
     expect(f.componentInstance.busy()).toBeFalse();
+  });
+});
+
+describe('Hidden /superadmin sign-in', () => {
+  function make(opts: { loggedIn?: boolean; isSuper?: boolean; superPage?: boolean } = {}) {
+    sessionStorage.clear();
+    const auth = { loggedIn: !!opts.loggedIn, isSuper: !!opts.isSuper,
+      login: jasmine.createSpy('login').and.returnValue(of({ role: 'SUPER_ADMIN' })) };
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: auth },
+      { provide: ActivatedRoute, useValue: { snapshot: { data: { superAdmin: opts.superPage ?? true }, queryParamMap: convertToParamMap({}) } } }] });
+    const nav = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const f = TestBed.createComponent(LoginComponent);
+    f.detectChanges();
+    return { f, c: f.componentInstance, auth, nav, el: f.nativeElement as HTMLElement };
+  }
+
+  it('says super admin, signs in in super admin mode and opens the super admin screen', () => {
+    const { c, auth, nav, el } = make();
+    expect(el.querySelector('h1')!.textContent).toBe('Super admin sign in');
+    c.username = 'superadmin';
+    c.password = 'pw';
+    c.submit();
+    expect(auth.login).toHaveBeenCalledWith('superadmin', 'pw', true);
+    expect(nav).toHaveBeenCalledWith('/admin/super');
+  });
+
+  it('a signed-in super admin goes straight in; a signed-in admin still sees the form', () => {
+    expect(make({ loggedIn: true, isSuper: true }).nav).toHaveBeenCalledWith('/admin/super');
+  });
+
+  it('a signed-in admin opening /superadmin is not let in', () => {
+    const { nav, el } = make({ loggedIn: true, isSuper: false });
+    expect(nav).not.toHaveBeenCalled();
+    expect(el.querySelector('form')).toBeTruthy();
+  });
+
+  it('the normal admin login never mentions the super admin', () => {
+    const { el } = make({ superPage: false });
+    expect(el.querySelector('h1')!.textContent).toBe('Admin sign in');
+    expect(el.textContent!.toLowerCase()).not.toContain('super');
+  });
+});
+
+describe('Admin: forgot password and sign-out note', () => {
+  function make(opts: { query?: Record<string, string>; forgot?: any; reset?: any } = {}) {
+    sessionStorage.clear();
+    const auth = {
+      loggedIn: false,
+      login: jasmine.createSpy('login').and.returnValue(of({})),
+      forgot: jasmine.createSpy('forgot').and.returnValue(opts.forgot ?? of({ message: 'If that username exists, a 6-digit code has been emailed to in**@halappafoundation.in. It works for 10 minutes.' })),
+      resetPassword: jasmine.createSpy('resetPassword').and.returnValue(opts.reset ?? of({ message: 'Password changed. Sign in with your new password.' })),
+    };
+    TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: auth },
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(opts.query ?? {}) } } }] });
+    spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    const f = TestBed.createComponent(LoginComponent);
+    f.detectChanges();
+    return { f, c: f.componentInstance, auth, el: f.nativeElement as HTMLElement };
+  }
+  const click = (el: HTMLElement, text: string) =>
+    ([...el.querySelectorAll('button')].find(b => b.textContent!.includes(text)) as HTMLButtonElement).click();
+
+  it('after Sign out the login page says so in green', () => {
+    const { el } = make({ query: { signedOut: '1' } });
+    expect(el.querySelector('.ok')!.textContent).toContain("You've signed out.");
+  });
+
+  it('no note on a normal visit', () => {
+    const { el } = make();
+    expect(el.querySelector('.ok')).toBeNull();
+  });
+
+  it('full flow: Forgot password? → email a code → code + new password → back to sign in', () => {
+    const { f, c, auth, el } = make();
+    click(el, 'Forgot password?');
+    f.detectChanges();
+    expect(el.querySelector('h1')!.textContent).toBe('Reset password');
+
+    c.sendCode(); // no username yet
+    expect(c.error()).toBe('Enter your username');
+    expect(auth.forgot).not.toHaveBeenCalled();
+
+    c.username = ' admin ';
+    click(el, 'Email me a code');
+    f.detectChanges();
+    expect(auth.forgot).toHaveBeenCalledWith('admin');
+    expect(el.querySelector('h1')!.textContent).toBe('Set a new password');
+    expect(el.querySelector('.ok')!.textContent).toContain('in**@halappafoundation.in');
+    expect(el.querySelectorAll('app-eye').length).toBe(2);
+
+    // checks before anything is sent
+    c.code = '12a'; c.resetPassword();
+    expect(c.error()).toBe('Enter the 6-digit code from the email');
+    c.code = '123 456'; c.newPassword = 'short'; c.resetPassword();
+    expect(c.error()).toBe('The new password needs at least 8 characters');
+    c.newPassword = 'Brand@New456'; c.newPassword2 = 'Different@1'; c.resetPassword();
+    expect(c.error()).toBe("The two new passwords don't match");
+    expect(auth.resetPassword).not.toHaveBeenCalled();
+
+    c.newPassword2 = 'Brand@New456';
+    c.resetPassword();
+    expect(auth.resetPassword).toHaveBeenCalledWith('admin', '123456', 'Brand@New456');
+    f.detectChanges();
+    expect(el.querySelector('h1')!.textContent).toBe('Admin sign in');
+    expect(el.querySelector('.ok')!.textContent).toContain('Password changed');
+    expect(c.newPassword).toBe('');
+    expect(c.username).toBe(' admin '); // kept, ready to sign in
+  });
+
+  it('shows the server reason (wrong code, email not set up) and allows a new code', () => {
+    const bad = throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'The code is wrong or has expired. Ask for a new code.' } }));
+    const { f, c, auth, el } = make({ reset: bad });
+    c.username = 'admin';
+    c.startForgot();
+    c.sendCode();
+    f.detectChanges();
+    c.code = '000000'; c.newPassword = c.newPassword2 = 'Brand@New456';
+    c.resetPassword();
+    f.detectChanges();
+    expect(el.querySelector('.err')!.textContent).toContain('wrong or has expired');
+    expect(c.busy()).toBeFalse();
+    click(el, 'Send a new code');
+    expect(auth.forgot).toHaveBeenCalledTimes(2);
+  });
+
+  it('when email is not set up on the server, Forgot explains it and stays on the form', () => {
+    const notSetUp = throwError(() => new HttpErrorResponse({ status: 400, error: { message: "Password reset by email isn't set up on the server yet" } }));
+    const { f, c, el } = make({ forgot: notSetUp });
+    c.startForgot();
+    c.username = 'admin';
+    c.sendCode();
+    f.detectChanges();
+    expect(c.mode()).toBe('forgot');
+    expect(el.querySelector('.err')!.textContent).toContain("isn't set up on the server");
+    click(el, 'Back to sign in');
+    f.detectChanges();
+    expect(c.mode()).toBe('signin');
+    expect(c.error()).toBe('');
   });
 });
 
@@ -264,8 +402,28 @@ describe('Routes', () => {
   it('every admin page is behind the sign-in guard, the login page is not', () => {
     const admin = routes.find(r => r.path === 'admin')!;
     expect(admin.canActivate).toContain(adminGuard);
-    expect(admin.children!.map(c => c.path)).toEqual(['', 'enquiries', 'inbox', 'messages', 'messages/new', 'messages/:id', 'vouchers', 'whatsapp', 'posts', 'gallery', 'timeline', 'settings']);
+    expect(admin.children!.map(c => c.path)).toEqual(['', 'enquiries', 'inbox', 'messages', 'messages/new', 'messages/:id', 'vouchers', 'whatsapp', 'posts', 'gallery', 'timeline', 'settings', 'wallet', 'super']);
     expect(routes.find(r => r.path === 'admin/login')!.canActivate).toBeUndefined();
+    // the Super admin page has its own guard on top of the sign-in one
+    expect(admin.children!.find(c => c.path === 'super')!.canActivate).toEqual([superGuard]);
+  });
+
+  it('/superadmin is a separate, unguarded sign-in page in super admin mode', () => {
+    const r = routes.find(x => x.path === 'superadmin')!;
+    expect(r.data).toEqual({ superAdmin: true });
+    expect(r.canActivate).toBeUndefined();
+  });
+
+  it('super admin guard: only the super admin gets in; admins go to the dashboard', () => {
+    const run = (loggedIn: boolean, isSuper: boolean) => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AuthService, useValue: { loggedIn, isSuper } }] });
+      const r = TestBed.runInInjectionContext(() => superGuard({} as any, {} as any));
+      return r === true ? true : TestBed.inject(Router).serializeUrl(r as any);
+    };
+    expect(run(true, true)).toBeTrue();
+    expect(run(true, false)).toBe('/admin');
+    expect(run(false, false)).toBe('/superadmin'); // never reveals the admin login
   });
 
   it('has every public page from the footer', () => {

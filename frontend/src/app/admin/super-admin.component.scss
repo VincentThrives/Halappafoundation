@@ -1,0 +1,35 @@
+h2 { margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; }
+h2 app-icon { width: 20px; height: 20px; color: var(--m-700); }
+.card { margin-bottom: 16px; }
+.wallets { width: 100%; border-collapse: collapse; }
+.wallets th { text-align: left; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 10px 12px; border-bottom: 2px solid var(--line); }
+.wallets td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.wallets .num { text-align: right; font-weight: 700; font-size: 1.1rem; color: #1b6b3a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wallets .num.zero { color: #9a1220; }
+.wallets .acts { text-align: right; white-space: nowrap; }
+.wallets .acts .btn { margin-left: 6px; }
+.form-row td { background: var(--cream); }
+.money { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.money .field { margin: 0; min-width: 140px; }
+.money .grow { flex: 1 1 220px; }
+.money .btns { display: flex; gap: 8px; }
+.rates { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.rates .field { margin: 0; width: 150px; }
+.rates label { display: flex; align-items: center; gap: 6px; }
+.rates label app-icon { width: 16px; height: 16px; color: var(--m-700); }
+.toast.err { background: #9a1220; }
+@media (max-width: 600px) {
+  .wallets .acts { white-space: normal; }
+  .wallets .acts .btn { margin: 4px 0 0 6px; }
+  .rates .field { width: calc(50% - 7px); }
+}
+.wallets th.num { text-align: right; color: var(--muted); font-size: .78rem; font-weight: 600; }
+/* Phones: each admin as a small card — name and balance on top, Recharge / Deduct underneath (no sideways scroll). */
+@media (max-width: 600px) {
+  .wallets thead { display: none; }
+  .wallets tr { display: grid; grid-template-columns: 1fr auto; align-items: center; border-bottom: 1px solid var(--line); }
+  .wallets td { border-bottom: 0; }
+  .wallets td.acts { grid-column: 1 / -1; text-align: left; padding-top: 0; }
+  .wallets td.acts .btn { margin: 0 8px 0 0; }
+  .wallets .form-row td { grid-column: 1 / -1; }
+}

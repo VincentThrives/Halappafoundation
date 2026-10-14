@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from './core/auth.service';
+import { adminGuard, superGuard } from './core/auth.service';
 import { PublicLayoutComponent } from './layout/public-layout.component';
 
 export const routes: Routes = [
@@ -22,6 +22,8 @@ export const routes: Routes = [
     ],
   },
   { path: 'admin/login', loadComponent: () => import('./admin/login.component').then(m => m.LoginComponent) },
+  // Hidden: not linked from anywhere. Super admin sign-in only.
+  { path: 'superadmin', data: { superAdmin: true }, loadComponent: () => import('./admin/login.component').then(m => m.LoginComponent) },
   {
     path: 'admin',
     canActivate: [adminGuard],
@@ -39,6 +41,8 @@ export const routes: Routes = [
       { path: 'gallery', loadComponent: () => import('./admin/gallery.component').then(m => m.AdminGalleryComponent) },
       { path: 'timeline', loadComponent: () => import('./admin/timeline.component').then(m => m.AdminTimelineComponent) },
       { path: 'settings', loadComponent: () => import('./admin/settings.component').then(m => m.SettingsComponent) },
+      { path: 'wallet', loadComponent: () => import('./admin/wallet.component').then(m => m.WalletComponent) },
+      { path: 'super', canActivate: [superGuard], loadComponent: () => import('./admin/super-admin.component').then(m => m.SuperAdminComponent) },
     ],
   },
   { path: '**', loadComponent: () => import('./pages/not-found.component').then(m => m.NotFoundComponent) },

@@ -30,21 +30,70 @@ public class AdminCampaignController {
     private final MailService mail;
     private final SmsService sms;
     private final ImapPoller imap;
+    private final FileStorageService files;
+
+    /** Public address of this backend for links WhatsApp must download (e.g. https://halappa-api.onrender.com). */
+    @org.springframework.beans.factory.annotation.Value("${app.public-url:}")
+    private String publicUrl;
 
     /** Which channels can send and receive right now. */
     @GetMapping("/channels")
     public Map<String, Object> channels(@org.springframework.beans.factory.annotation.Value("${whatsapp.app-secret:}") String waSecret,
+                                        @org.springframework.beans.factory.annotation.Value("${whatsapp.msg91.webhook-token:}") String msg91WebhookToken,
                                         @org.springframework.beans.factory.annotation.Value("${sms.inbound-token:}") String smsToken,
                                         @org.springframework.beans.factory.annotation.Value("${app.campaign.max-recipients:5000}") int max) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("whatsappApi", whatsapp.apiEnabled());
-        m.put("whatsappInbound", whatsapp.apiEnabled() && !waSecret.isBlank());
+        m.put("whatsappProvider", whatsapp.provider());
+        m.put("whatsappTemplatesOnly", whatsapp.apiEnabled() && whatsapp.bulkNeedsTemplate());
+        // Replies arrive through Meta's signed webhook, or MSG91's webhook with its secret token.
+        boolean msg91 = "msg91".equals(whatsapp.provider());
+        m.put("whatsappInbound", whatsapp.apiEnabled() && !(msg91 ? msg91WebhookToken : waSecret).isBlank());
         m.put("email", mail.enabled());
         m.put("emailInbound", imap.enabled());
         m.put("sms", sms.enabled());
         m.put("smsInbound", !smsToken.isBlank());
         m.put("maxRecipients", max);
         return m;
+    }
+
+    /**
+     * Approved WhatsApp templates to pick from (MSG91). When they can't be listed, available=false and the admin
+     * types the template name and pastes its text instead.
+     */
+    @GetMapping("/whatsapp-templates")
+    public Map<String, Object> whatsappTemplates() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        try {
+            List<WhatsAppService.Template> list = whatsapp.templates();
+            m.put("available", list != null);
+            m.put("templates", list == null ? List.of() : list);
+            if (list == null) m.put("message", "Template list isn't available for this WhatsApp connection; type the name and paste the text.");
+        } catch (Exception e) {
+            m.put("available", false);
+            m.put("templates", List.of());
+            m.put("message", "Couldn't load templates: " + e.getMessage());
+        }
+        return m;
+    }
+
+    /**
+     * Photo for a template with an IMAGE header. WhatsApp accepts JPG or PNG up to 5 MB and downloads it from the
+     * returned public https link for every message.
+     */
+    @PostMapping(value = "/header-image", consumes = "multipart/form-data")
+    public Map<String, String> headerImage(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) throw com.vincent.halappa.common.ApiException.badRequest("Choose a photo");
+        String type = file.getContentType() == null ? "" : file.getContentType();
+        if (!type.equals("image/jpeg") && !type.equals("image/png"))
+            throw com.vincent.halappa.common.ApiException.badRequest("WhatsApp accepts JPG or PNG photos only");
+        if (file.getSize() > 5L * 1024 * 1024)
+            throw com.vincent.halappa.common.ApiException.badRequest("The photo is larger than 5 MB (WhatsApp's limit); use a smaller one");
+        String path = files.store(file);
+        String base = publicUrl == null || publicUrl.isBlank()
+                ? org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentContextPath().toUriString()
+                : publicUrl.trim().replaceAll("/+$", "");
+        return Map.of("path", path, "url", base + path);
     }
 
     @PostMapping(value = "/import", consumes = "multipart/form-data")

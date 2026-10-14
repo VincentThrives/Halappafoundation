@@ -24,26 +24,14 @@ public class DataSeeder implements CommandLineRunner {
 
     @Value("${app.seed.admin-username:admin}") private String adminUser;
     @Value("${app.seed.admin-password:}") private String adminPassword;
+    @Value("${app.seed.superadmin-username:superadmin}") private String superUser;
+    @Value("${app.seed.superadmin-password:}") private String superPassword;
 
     @Override
     public void run(String... args) {
         settings.ensureDefaults();
-
-        if (admins.count() == 0) {
-            String pw = adminPassword;
-            boolean generated = pw == null || pw.isBlank();
-            if (generated) pw = randomPassword();
-            AdminUser a = new AdminUser();
-            a.setUsername(adminUser);
-            a.setPasswordHash(encoder.encode(pw));
-            admins.save(a);
-            if (generated) {
-                // Shown once, only in this server's own log. There is no password default in the code.
-                log.warn("Created admin '{}' with one-time password: {}  (set SEED_ADMIN_PASSWORD to choose it; change it after signing in)", adminUser, pw);
-            } else {
-                log.info("Seeded admin user '{}'. Change the password after first login.", adminUser);
-            }
-        }
+        seedAdmin();
+        seedSuperAdmin();
 
         if (timeline.count() == 0) seedTimeline();
         if (posts.count() == 0) seedArticles();
@@ -124,12 +112,45 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    private static String randomPassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#%";
-        var rnd = new java.security.SecureRandom();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 16; i++) sb.append(chars.charAt(rnd.nextInt(chars.length())));
-        return sb.toString();
+    /**
+     * Creates the first admin from SEED_ADMIN_PASSWORD, once. An existing admin is never touched, so the password
+     * survives every restart and deploy; it changes only through Settings → Change password (needs the current one).
+     * No password is ever generated: without SEED_ADMIN_PASSWORD no admin is created until it is set.
+     */
+    /**
+     * Creates the super admin from SEED_SUPERADMIN_USERNAME / SEED_SUPERADMIN_PASSWORD, once, when there is none.
+     * Same rules as the admin: never generated, never changed by restarts or deploys.
+     */
+    void seedSuperAdmin() {
+        if (admins.existsByRole(AdminUser.SUPER_ADMIN)) return;
+        if (superPassword == null || superPassword.isBlank()) {
+            log.info("No super admin yet: set SEED_SUPERADMIN_PASSWORD (and optionally SEED_SUPERADMIN_USERNAME) to create one.");
+            return;
+        }
+        String name = superUser == null || superUser.isBlank() ? "superadmin" : superUser.trim();
+        if (admins.findByUsername(name).isPresent()) {
+            log.error("Can't create the super admin: the username '{}' is already an admin. Choose another SEED_SUPERADMIN_USERNAME.", name);
+            return;
+        }
+        AdminUser a = new AdminUser();
+        a.setUsername(name);
+        a.setRole(AdminUser.SUPER_ADMIN);
+        a.setPasswordHash(encoder.encode(superPassword));
+        admins.save(a);
+        log.info("Created super admin '{}' from SEED_SUPERADMIN_PASSWORD. It will not be changed by later restarts or deploys.", name);
+    }
+
+    void seedAdmin() {
+        if (admins.findAll().stream().anyMatch(a -> !a.superAdmin())) return; // an admin exists (the super admin doesn't count)
+        if (adminPassword == null || adminPassword.isBlank()) {
+            log.error("No admin account yet: set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_USERNAME) and restart to create it.");
+            return;
+        }
+        AdminUser a = new AdminUser();
+        a.setUsername(adminUser);
+        a.setPasswordHash(encoder.encode(adminPassword));
+        admins.save(a);
+        log.info("Created admin '{}' from SEED_ADMIN_PASSWORD. It will not be changed by later restarts or deploys.", adminUser);
     }
 
     private static GalleryItem photo(String cat, String en, String kn, String img) {

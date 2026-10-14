@@ -1,21 +1,74 @@
 <div class="wrap">
-  <form class="box" (ngSubmit)="submit()">
-    <img src="img/logo.jpg" alt="">
-    <h1>Admin sign in</h1>
-    <p>Halappa Foundation</p>
-    <div class="field">
-      <label for="u">Username</label>
-      <input id="u" class="input" name="u" [(ngModel)]="username" autocomplete="username" required>
-    </div>
-    <div class="field">
-      <label for="p">Password</label>
-      <div class="pw">
-        <input #pw id="p" class="input" name="p" type="password" [(ngModel)]="password" autocomplete="current-password" required>
-        <app-eye [for]="pw" />
-      </div>
-    </div>
-    @if (error()) { <p class="err">{{ error() }}</p> }
-    <button class="btn" type="submit" [disabled]="busy()">{{ busy() ? 'Signing in…' : 'Sign in' }}</button>
-    <a routerLink="/" class="back">← Back to website</a>
-  </form>
+  @switch (mode()) {
+    @case ('signin') {
+      <form class="box" (ngSubmit)="submit()">
+        <img src="img/logo.jpg" alt="">
+        <h1>{{ superPage ? 'Super admin sign in' : 'Admin sign in' }}</h1>
+        <p>Halappa Foundation</p>
+        @if (notice()) { <div class="ok" role="status">✓ {{ notice() }}</div> }
+        <div class="field">
+          <label for="u">Username</label>
+          <input id="u" class="input" name="u" [(ngModel)]="username" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="p">Password</label>
+          <div class="pw">
+            <input #pw id="p" class="input" name="p" type="password" [(ngModel)]="password" autocomplete="current-password" required>
+            <app-eye [for]="pw" />
+          </div>
+        </div>
+        @if (error()) { <p class="err">{{ error() }}</p> }
+        <button class="btn" type="submit" [disabled]="busy()">{{ busy() ? 'Signing in…' : 'Sign in' }}</button>
+        <button type="button" class="link" (click)="startForgot()">Forgot password?</button>
+        <a routerLink="/" class="back">← Back to website</a>
+      </form>
+    }
+
+    @case ('forgot') {
+      <form class="box" (ngSubmit)="sendCode()">
+        <img src="img/logo.jpg" alt="">
+        <h1>Reset password</h1>
+        <p>We'll email a 6-digit code to the foundation's admin email.</p>
+        <div class="field">
+          <label for="fu">Username</label>
+          <input id="fu" class="input" name="fu" [(ngModel)]="username" autocomplete="username" required>
+        </div>
+        @if (error()) { <p class="err">{{ error() }}</p> }
+        <button class="btn" type="submit" [disabled]="busy()">{{ busy() ? 'Sending…' : 'Email me a code' }}</button>
+        <button type="button" class="link" (click)="backToSignIn()">← Back to sign in</button>
+      </form>
+    }
+
+    @case ('reset') {
+      <form class="box" (ngSubmit)="resetPassword()">
+        <img src="img/logo.jpg" alt="">
+        <h1>Set a new password</h1>
+        @if (notice()) { <div class="ok" role="status">{{ notice() }}</div> }
+        <div class="field">
+          <label for="c">6-digit code from the email</label>
+          <input id="c" class="input code" name="c" [(ngModel)]="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required>
+        </div>
+        <div class="field">
+          <label for="n1">New password <span class="hint">(at least 8 characters)</span></label>
+          <div class="pw">
+            <input #n1 id="n1" class="input" name="n1" type="password" [(ngModel)]="newPassword" autocomplete="new-password" required>
+            <app-eye [for]="n1" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="n2">Type the new password again</label>
+          <div class="pw">
+            <input #n2 id="n2" class="input" name="n2" type="password" [(ngModel)]="newPassword2" autocomplete="new-password" required>
+            <app-eye [for]="n2" />
+          </div>
+        </div>
+        @if (error()) { <p class="err">{{ error() }}</p> }
+        <button class="btn" type="submit" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Change password' }}</button>
+        <div class="row">
+          <button type="button" class="link" (click)="sendCode()" [disabled]="busy()">Send a new code</button>
+          <button type="button" class="link" (click)="backToSignIn()">Back to sign in</button>
+        </div>
+      </form>
+    }
+  }
 </div>

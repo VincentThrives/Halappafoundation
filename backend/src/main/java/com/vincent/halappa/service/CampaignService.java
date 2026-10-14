@@ -34,6 +34,7 @@ public class CampaignService {
     private final CampaignRunner runner;
     private final SequenceService sequences;
     private final MongoTemplate mongo;
+    private final WalletService wallet;
 
     @Value("${app.campaign.max-recipients:5000}")
     private int maxRecipients = 5000;
@@ -61,7 +62,15 @@ public class CampaignService {
             String templateLang,
             /** WhatsApp only: open wa.me links by hand instead of the Cloud API. */
             boolean manual,
-            Voucher voucher) {}
+            Voucher voucher,
+            /** WhatsApp template text with {{1}}, {{2}}… (for the log/preview; optional). */
+            String templateBody,
+            /** Values for {{1}}, {{2}}… in order; each may use {name} and {voucher}. Empty = name, voucher. */
+            List<String> templateParams,
+            /** The template's header type ("IMAGE" needs headerImage). */
+            String templateHeader,
+            /** Public https link of the photo for an IMAGE header (from the header-image upload). */
+            String headerImage) {}
 
     public record Stats(long total, long queued, long sent, long delivered, long read, long failed, long manual,
                         long cancelled, long attended) {}
@@ -80,6 +89,21 @@ public class CampaignService {
             case "whatsapp" -> {
                 manual = r.manual() || !whatsapp.apiEnabled();
                 boolean hasTemplate = !isBlank(r.template()) && !manual;
+                if (!manual && whatsapp.bulkNeedsTemplate() && !hasTemplate)
+                    throw ApiException.badRequest("WhatsApp through MSG91 needs an approved template: enter the template name exactly as in MSG91");
+                if (hasTemplate && "IMAGE".equalsIgnoreCase(r.templateHeader()) && isBlank(r.headerImage()))
+                    throw ApiException.badRequest("This template shows a photo at the top: upload the photo for this send");
+                if (!isBlank(r.headerImage()) && !r.headerImage().trim().matches("(?i)https?://\\S+"))
+                    throw ApiException.badRequest("The photo link isn't valid; upload the photo again");
+                if (hasTemplate && !isBlank(r.templateBody())) {
+                    int needed = Contacts.templateVariables(r.templateBody());
+                    List<String> given = r.templateParams() == null ? List.of() : r.templateParams();
+                    int filled = given.isEmpty() ? 2 : given.size(); // nothing given = {{1}} name, {{2}} voucher
+                    for (int i = 0; i < needed; i++) {
+                        if (i >= filled || (!given.isEmpty() && isBlank(given.get(i))))
+                            throw ApiException.badRequest("Fill in {{" + (i + 1) + "}} of the template");
+                    }
+                }
                 if (isBlank(r.message()) && !hasTemplate) throw ApiException.badRequest("Write the message (or give an approved template name)");
             }
             case "email" -> {
@@ -107,12 +131,30 @@ public class CampaignService {
         c.setMessage(cap(r.message(), 4000));
         c.setTemplate(manual || isBlank(r.template()) ? null : r.template().trim());
         c.setTemplateLang(isBlank(r.templateLang()) ? "en" : r.templateLang().trim());
+        if (c.getTemplate() != null) {
+            c.setTemplateBody(isBlank(r.templateBody()) ? null : cap(r.templateBody().trim(), 4000));
+            List<String> tp = r.templateParams() == null ? List.of()
+                    : r.templateParams().stream().map(s -> cap(s == null ? "" : s.trim(), 500)).toList();
+            c.setTemplateParams(tp.isEmpty() ? null : tp);
+            c.setHeaderImage(isBlank(r.headerImage()) ? null : cap(r.headerImage().trim(), 1000));
+        }
         c.setVoucherMode(v.mode() == null ? "none" : v.mode());
         c.setVoucherInfo(voucherInfo(v, codes));
         c.setTotal(people.size());
         c.setStatus(manual ? "manual" : "running");
         c.setCreatedBy(admin);
         c = campaigns.save(c);
+
+        // Automatic sends are paid from the admin's wallet up front; nothing is created if it doesn't cover them.
+        if (!manual && admin != null) {
+            try {
+                wallet.chargeSend(c, admin, people.size());
+            } catch (RuntimeException e) {
+                campaigns.delete(c);
+                throw e;
+            }
+            c = campaigns.save(c);
+        }
 
         // Ids for all recipients in one round trip, then a single bulk insert (up to 5000 documents).
         long firstId = sequences.reserve("messages", people.size());
@@ -129,7 +171,11 @@ public class CampaignService {
             m.setName(cap(p.name(), 150));
             m.setVoucher(voucher);
             m.setSubject(channel.equals("email") ? cap(Contacts.personalise(r.subject(), p.name(), voucher), 300) : null);
-            m.setBody(cap(Contacts.personalise(isBlank(r.message()) ? "[template " + c.getTemplate() + "]" : r.message(), p.name(), voucher), 4000));
+            String body = c.getTemplateBody() != null
+                    // exactly what WhatsApp shows this person: the template with their values in {{1}}, {{2}}…
+                    ? Contacts.fillTemplate(c.getTemplateBody(), Contacts.templateParams(c.getTemplateParams(), p.name(), voucher))
+                    : Contacts.personalise(isBlank(r.message()) ? "[template " + c.getTemplate() + "]" : r.message(), p.name(), voucher);
+            m.setBody(cap(body, 4000));
             m.setStatus(manual ? "manual" : "queued");
             batch.add(m);
         }
@@ -268,15 +314,24 @@ public class CampaignService {
         messages.moveStatus(id, "queued", "cancelled");
         c.setStatus("cancelled");
         c.setFinishedAt(LocalDateTime.now());
-        return view(campaigns.save(c));
+        c = campaigns.save(c);
+        wallet.settle(c); // messages that won't go out are refunded
+        return view(c);
     }
 
     public View retryFailed(Long id) {
         Campaign c = find(id);
         if ("manual".equals(c.getMode())) throw ApiException.badRequest("Manual sends are retried by opening the links again");
         if ("running".equals(c.getStatus())) throw ApiException.badRequest("Wait for the send to finish first");
-        int n = messages.moveStatus(id, "failed", "queued");
-        if (n == 0) throw ApiException.badRequest("Nothing failed");
+        long failed = mongo.count(org.springframework.data.mongodb.core.query.Query.query(
+                org.springframework.data.mongodb.core.query.Criteria.where("campaignId").is(id).and("status").is("failed")), Message.class);
+        if (failed == 0) throw ApiException.badRequest("Nothing failed");
+        if (c.getChargedTo() != null) {
+            wallet.settle(c);                                   // failed ones were refunded…
+            wallet.chargeSend(c, c.getChargedTo(), (int) failed); // …and are paid again for the retry (refused if short)
+            c = campaigns.save(c);
+        }
+        messages.moveStatus(id, "failed", "queued");
         c.setStatus("running");
         c.setFinishedAt(null);
         campaigns.save(c);

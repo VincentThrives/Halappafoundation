@@ -1,0 +1,88 @@
+<div class="head">
+  <div><h1>Super admin</h1><p>Recharge admin wallets, set the price per message, and see every wallet movement.</p></div>
+</div>
+
+<!-- Wallets -->
+<div class="card stack">
+  <h2><app-icon name="briefcase" /> Admin wallets</h2>
+  <div class="tbl-wrap">
+    <table class="wallets">
+      <thead><tr><th>Admin</th><th class="num">Balance</th><th></th></tr></thead>
+      <tbody>
+        @for (a of walletAdmins(); track a.username) {
+          <tr>
+            <td><b>{{ a.username }}</b></td>
+            <td class="num" [class.zero]="a.walletPaise <= 0">{{ rupees(a.walletPaise) }}</td>
+            <td class="acts">
+              <button class="btn btn-maroon btn-sm" (click)="open(a.username, 'recharge')"><app-icon name="plus" /> Recharge</button>
+              <button class="btn btn-ghost btn-sm" (click)="open(a.username, 'deduct')">Deduct</button>
+            </td>
+          </tr>
+          @if (editing()?.username === a.username) {
+            <tr class="form-row">
+              <td colspan="3">
+                <form class="money" (ngSubmit)="saveMoney()">
+                  <div class="field"><label>{{ editing()?.mode === 'recharge' ? 'Amount to add (₹)' : 'Amount to take (₹)' }}</label>
+                    <input class="input" name="amount" [(ngModel)]="amount" inputmode="decimal" placeholder="500" autofocus></div>
+                  <div class="field grow"><label>Note <span class="muted">(e.g. UPI / receipt number)</span></label>
+                    <input class="input" name="note" [(ngModel)]="note" maxlength="300" placeholder="UPI ref 1234"></div>
+                  <div class="btns">
+                    <button class="btn btn-sm" type="submit" [disabled]="busy()">{{ editing()?.mode === 'recharge' ? 'Recharge' : 'Deduct' }}</button>
+                    <button class="btn btn-ghost btn-sm" type="button" (click)="close()">Cancel</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+          }
+        } @empty {
+          <tr><td colspan="3" class="muted">No admin accounts yet.</td></tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Prices -->
+<div class="card stack">
+  <h2><app-icon name="settings" /> Price per message</h2>
+  <form class="rates" (ngSubmit)="saveRates()">
+    <div class="field"><label><app-icon name="whatsapp" /> WhatsApp (₹)</label><input class="input" name="wa" [(ngModel)]="rates.whatsapp" inputmode="decimal"></div>
+    <div class="field"><label><app-icon name="phone" /> SMS (₹)</label><input class="input" name="sms" [(ngModel)]="rates.sms" inputmode="decimal"></div>
+    <div class="field"><label><app-icon name="mail" /> Email (₹)</label><input class="input" name="email" [(ngModel)]="rates.email" inputmode="decimal"></div>
+    <button class="btn btn-sm" type="submit" [disabled]="busy()"><app-icon name="check" /> Save prices</button>
+  </form>
+  <p class="muted">{{ ratesInfo() }} Each automatic message costs this much from the sending admin's wallet. ₹0 = free.</p>
+</div>
+
+<!-- Audit log -->
+<div class="card stack">
+  <h2><app-icon name="history" /> Audit log</h2>
+  <div class="filters">
+    <select class="input" [(ngModel)]="f.admin" (ngModelChange)="load(0)" aria-label="Admin">
+      <option value="">All admins</option>
+      @for (a of admins(); track a.username) { <option [value]="a.username">{{ a.username }}</option> }
+    </select>
+    <select class="input" [(ngModel)]="f.type" (ngModelChange)="load(0)" aria-label="Type">
+      <option value="">Everything</option>
+      <option value="RECHARGE">Recharges</option>
+      <option value="DEDUCT">Deductions</option>
+      <option value="SEND">Bulk sends</option>
+      <option value="REPLY">Inbox replies</option>
+      <option value="REFUND">Refunds</option>
+      <option value="RATES">Price changes</option>
+    </select>
+    <input class="input" type="date" [(ngModel)]="f.from" (ngModelChange)="load(0)" aria-label="From">
+    <input class="input" type="date" [(ngModel)]="f.to" (ngModelChange)="load(0)" aria-label="To">
+  </div>
+  <p class="muted">{{ total() }} line{{ total() === 1 ? '' : 's' }}</p>
+  <app-wallet-log [items]="items()" [showAdmin]="true" />
+  @if (pages() > 1) {
+    <div class="pager">
+      <button class="btn btn-ghost btn-sm" [disabled]="page === 0" (click)="load(page - 1)">‹ Newer</button>
+      <span>Page {{ page + 1 }} of {{ pages() }}</span>
+      <button class="btn btn-ghost btn-sm" [disabled]="page + 1 >= pages()" (click)="load(page + 1)">Older ›</button>
+    </div>
+  }
+</div>
+
+@if (toast()) { <div class="toast" [class.err]="toastErr" role="status">{{ toast() }}</div> }

@@ -40,8 +40,9 @@
 .slide.active .badge { transform: none; }
 .visual.round .badge { display: none; }
 
-.dots { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); display: flex; gap: 12px; z-index: 3; }
-.dots button { width: 54px; height: 4px; border: 0; padding: 0; border-radius: 4px; background: rgba(255,255,255,.25); cursor: pointer; overflow: hidden; }
+.dots { position: absolute; left: 50%; bottom: 27px; transform: translateX(-50%); display: flex; gap: 12px; z-index: 3; }
+/* 4px line, 30px-tall tap area (padding + content-box background) */
+.dots button { width: 54px; height: 30px; border: 0; padding: 13px 0; border-radius: 4px; background: rgba(255,255,255,.25); background-clip: content-box; cursor: pointer; overflow: hidden; }
 .dots i { display: block; height: 100%; width: 0; background: var(--gold-grad); }
 .dots button.on i { animation: fill 6.5s linear forwards; }
 @keyframes fill { to { width: 100%; } }
@@ -135,7 +136,7 @@ cite { display: block; margin-top: 24px; color: var(--g-400); font-style: normal
   .ctas .btn { padding: 12px 22px; }
   .visual { width: min(200px, 48vw); order: -1; }
   .orbit { inset: -14px; }
-  .dots { bottom: 18px; }
+  .dots { bottom: 5px; }
   .badge { width: 70px; height: 70px; left: -16px; }
   .scroll-cue { display: none; }
   .qb-in { grid-template-columns: 1fr; gap: 36px; text-align: center; }
