@@ -37,7 +37,7 @@ app:
     secret: ${JWT_SECRET:}
     ttl-minutes: 720
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:4210}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   uploads-dir: ${UPLOADS_DIR:./data/uploads}
   # Public https address of this backend, used in photo links WhatsApp downloads (e.g. https://halappa-api.onrender.com).
   # Blank = taken from each request (works behind Render, which sets the forwarded host/protocol).

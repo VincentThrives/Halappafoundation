@@ -28,7 +28,7 @@ The backend address comes from `frontend/src/environments/`:
 
 Code keeps writing short paths (`/api/...`); `core/backend.ts` adds `apiUrl` to every API request, and the `media` pipe
 does the same for uploaded photos (`<img [src]="p.image | media">`). The backend must list the site's address in
-`CORS_ORIGINS` (local default: `http://localhost:4210`).
+`CORS_ORIGINS` (local default: any `http://localhost` or `http://127.0.0.1` port).
 
 Open http://localhost:4210. Admin panel: http://localhost:4210/admin (or **Sign in** in the site's top bar).
 The first admin account is created on first start from `SEED_ADMIN_USERNAME` (default `admin`) and `SEED_ADMIN_PASSWORD`.

@@ -81,5 +81,11 @@ export const superGuard: CanActivateFn = () => {
 /** Pulls the server's {"message": ...} out of an HTTP error. */
 export function errMsg(e: unknown, fallback = 'Something went wrong'): string {
   const he = e as HttpErrorResponse;
-  return (he?.error && typeof he.error === 'object' && he.error.message) || fallback;
+  const msg = he?.error && typeof he.error === 'object' && he.error.message;
+  if (msg) return msg;
+  // No answer at all: server stopped, offline, or this address isn't in the server's CORS_ORIGINS.
+  if (he?.status === 0) return `${fallback}: the server could not be reached. Check your internet and try again.`;
+  // Render's free plan sleeps; the first request after a quiet spell gets 502/503/504 while it wakes up.
+  if ([502, 503, 504].includes(he?.status)) return `${fallback}: the server is starting up. Please try again in a minute.`;
+  return fallback;
 }
