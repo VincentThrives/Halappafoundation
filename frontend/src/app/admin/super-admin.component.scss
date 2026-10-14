@@ -33,3 +33,7 @@ h2 app-icon { width: 20px; height: 20px; color: var(--m-700); }
   .wallets td.acts .btn { margin: 0 8px 0 0; }
   .wallets .form-row td { grid-column: 1 / -1; }
 }
+.pw { position: relative; }
+.pw .input { padding-right: 48px; width: 100%; }
+.pw .eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--m-700); display: grid; place-items: center; cursor: pointer; }
+.pw .eye app-icon { width: 20px; height: 20px; }

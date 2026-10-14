@@ -1,25 +1,36 @@
 package com.vincent.halappa.web;
 
+import com.vincent.halappa.common.ApiException;
 import com.vincent.halappa.common.PageDto;
+import com.vincent.halappa.domain.AdminUser;
+import com.vincent.halappa.domain.AdminUserRepository;
 import com.vincent.halappa.domain.WalletRates;
 import com.vincent.halappa.domain.WalletTxn;
 import com.vincent.halappa.service.WalletService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-/** Super admin only (see SecurityConfig): recharge wallets, set prices per message, see everyone's audit log. */
+/** Super admin only (see SecurityConfig): recharge wallets, set prices per message, see everyone's audit log, reset admin passwords. */
+@Slf4j
 @RestController
 @RequestMapping("/api/super")
 @RequiredArgsConstructor
 public class SuperAdminController {
 
     private final WalletService wallet;
+    private final AdminUserRepository users;
+    private final PasswordEncoder encoder;
 
     /** Amount in rupees as typed, e.g. "500" or "0.80". */
     public record Money(String amount, String note) {}
@@ -38,6 +49,21 @@ public class SuperAdminController {
     @PostMapping("/admins/{username}/deduct")
     public WalletTxn deduct(@PathVariable String username, @RequestBody Money m, Authentication auth) {
         return wallet.deduct(username, WalletService.toPaise(m.amount()), m.note(), auth.getName());
+    }
+
+    public record NewPassword(@NotBlank @Size(min = 8, max = 100, message = "Password must be 8 to 100 characters") String password) {}
+
+    /** Sets an admin's password without the old one (for a forgotten password). Never the super admin's own. */
+    @PostMapping("/admins/{username}/password")
+    public Map<String, String> setPassword(@PathVariable String username, @Valid @RequestBody NewPassword r, Authentication auth) {
+        AdminUser u = users.findByUsername(username).filter(a -> !a.superAdmin()).orElseThrow(() -> ApiException.notFound("Admin"));
+        u.setPasswordHash(encoder.encode(r.password()));
+        u.setResetCodeHash(null);
+        u.setResetExpiresAt(null);
+        u.setResetAttempts(0);
+        users.save(u);
+        log.info("Super admin '{}' set a new password for admin '{}'", auth.getName(), username);
+        return Map.of("message", "Password changed for " + username);
     }
 
     @GetMapping("/rates")

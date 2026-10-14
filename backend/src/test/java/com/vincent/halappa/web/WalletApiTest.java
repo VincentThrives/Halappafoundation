@@ -196,6 +196,31 @@ class WalletApiTest {
         loginOn("admin", "Admin@12345", false).andExpect(status().isOk()).andExpect(jsonPath("$.role").value("ADMIN"));
     }
 
+    // ---------- password reset by the super admin ----------
+
+    @Test
+    void superAdminSetsAnAdminsPasswordWithoutTheOldOne() throws Exception {
+        try {
+            mvc.perform(post("/api/super/admins/admin/password").with(sup()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(Map.of("password", "Fresh@2026")))).andExpect(status().isOk());
+            loginOn("admin", "Admin@12345", false).andExpect(status().isUnauthorized());
+            loginOn("admin", "Fresh@2026", false).andExpect(status().isOk());
+
+            // too short, unknown admin, the super admin itself, and admins: all refused
+            mvc.perform(post("/api/super/admins/admin/password").with(sup()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(Map.of("password", "short")))).andExpect(status().isBadRequest());
+            mvc.perform(post("/api/super/admins/nobody/password").with(sup()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(Map.of("password", "Fresh@2026")))).andExpect(status().isNotFound());
+            mvc.perform(post("/api/super/admins/owner/password").with(sup()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(Map.of("password", "Fresh@2026")))).andExpect(status().isNotFound());
+            mvc.perform(post("/api/super/admins/admin/password").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(Map.of("password", "Fresh@2026")))).andExpect(status().isForbidden());
+        } finally {
+            mvc.perform(post("/api/super/admins/admin/password").with(sup()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(Map.of("password", "Admin@12345")))).andExpect(status().isOk());
+        }
+    }
+
     // ---------- recharge / deduct ----------
 
     @Test

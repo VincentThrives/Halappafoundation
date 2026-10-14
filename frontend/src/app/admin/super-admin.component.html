@@ -16,9 +16,30 @@
             <td class="acts">
               <button class="btn btn-maroon btn-sm" (click)="open(a.username, 'recharge')"><app-icon name="plus" /> Recharge</button>
               <button class="btn btn-ghost btn-sm" (click)="open(a.username, 'deduct')">Deduct</button>
+              <button class="btn btn-ghost btn-sm" (click)="open(a.username, 'password')">Set password</button>
             </td>
           </tr>
-          @if (editing()?.username === a.username) {
+          @if (editing()?.username === a.username && editing()?.mode === 'password') {
+            <tr class="form-row">
+              <td colspan="3">
+                <form class="money" (ngSubmit)="savePassword()">
+                  <div class="field grow"><label>New password for {{ a.username }} <span class="muted">(8+ characters)</span></label>
+                    <div class="pw">
+                      <input class="input" name="newPassword" [(ngModel)]="newPassword" [type]="showPw ? 'text' : 'password'"
+                             autocomplete="new-password" maxlength="100" autofocus>
+                      <button class="eye" type="button" (click)="showPw = !showPw" [attr.aria-label]="showPw ? 'Hide password' : 'Show password'">
+                        <app-icon [name]="showPw ? 'eye-off' : 'eye'" />
+                      </button>
+                    </div>
+                  </div>
+                  <div class="btns">
+                    <button class="btn btn-sm" type="submit" [disabled]="busy()">Set password</button>
+                    <button class="btn btn-ghost btn-sm" type="button" (click)="close()">Cancel</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+          } @else if (editing()?.username === a.username) {
             <tr class="form-row">
               <td colspan="3">
                 <form class="money" (ngSubmit)="saveMoney()">

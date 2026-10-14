@@ -29,6 +29,9 @@ export class AdminApi {
   deduct(username: string, amount: string, note: string) {
     return this.http.post<WalletTxn>(`/api/super/admins/${encodeURIComponent(username)}/deduct`, { amount, note });
   }
+  setAdminPassword(username: string, password: string) {
+    return this.http.post<{ message: string }>(`/api/super/admins/${encodeURIComponent(username)}/password`, { password });
+  }
   superRates() { return this.http.get<WalletRates>('/api/super/rates'); }
   setRates(r: { whatsapp: string; sms: string; email: string }) { return this.http.put<WalletRates>('/api/super/rates', r); }
   audit(f: WalletLogQuery = {}, page = 0) {
