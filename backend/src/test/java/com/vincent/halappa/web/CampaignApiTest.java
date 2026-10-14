@@ -288,6 +288,10 @@ class CampaignApiTest extends ApiTestBase {
                 .andExpect(jsonPath("$[0].direction").value("in"))
                 .andExpect(jsonPath("$[0].body", containsString("Please share hostel details.")));
         mvc.perform(get("/api/admin/inbox/unread").with(admin())).andExpect(jsonPath("$.unread").value(0));
+        // the conversation's own badge goes too, and stays gone after the list reloads
+        mvc.perform(get("/api/admin/inbox/threads").with(admin()).param("channel", "web"))
+                .andExpect(jsonPath("$.items[0].unread").value(0))
+                .andExpect(jsonPath("$.items[0].received").value(1));
     }
 
     @Test
