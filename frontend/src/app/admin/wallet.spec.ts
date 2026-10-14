@@ -94,14 +94,14 @@ describe('Admin: Wallet page', () => {
     expect(api.walletLog).toHaveBeenCalledWith(jasmine.objectContaining({ type: 'REFUND' }), 0);
   });
 
-  it('an empty wallet says to ask the super admin', () => {
+  it('an empty wallet says to ask Vincent Thrives', () => {
     const api = stub();
     api.wallet.and.returnValue(of({ username: 'admin', superAdmin: false, balancePaise: 0, rates: { whatsappPaise: 80, smsPaise: 0, emailPaise: 0 } }));
     TestBed.configureTestingModule({ providers: [provideRouter([]), { provide: AdminApi, useValue: api }] });
     const f = TestBed.createComponent(WalletComponent);
     f.detectChanges();
     expect(f.nativeElement.querySelector('.balance').classList.contains('low')).toBeTrue();
-    expect(f.nativeElement.textContent).toContain('Ask the super admin to recharge');
+    expect(f.nativeElement.textContent).toContain('Ask Vincent Thrives to recharge before sending messages');
   });
 });
 

@@ -113,7 +113,7 @@ public class WalletService {
             AdminUser after = take(admin, cost);
             if (after == null) throw ApiException.badRequest("Not enough balance in the wallet: this send costs " + rupees(cost)
                     + " (" + count + " × " + rupees(rate) + ") and the wallet has " + rupees(u.getWalletPaise())
-                    + ". Ask the super admin to recharge.");
+                    + ". Ask Vincent Thrives to recharge.");
             balanceAfter = after.getWalletPaise();
         }
         c.setChargedTo(u.superAdmin() ? null : admin);
@@ -153,7 +153,7 @@ public class WalletService {
         if (rate > 0) {
             AdminUser after = take(admin, rate);
             if (after == null) throw ApiException.badRequest("Not enough balance in the wallet for this reply (" + rupees(rate)
-                    + "); the wallet has " + rupees(u.getWalletPaise()) + ". Ask the super admin to recharge.");
+                    + "); the wallet has " + rupees(u.getWalletPaise()) + ". Ask Vincent Thrives to recharge.");
             balanceAfter = after.getWalletPaise();
         }
         log(admin, WalletTxn.REPLY, -rate, balanceAfter, channel, null, null, 1, rate, "Reply to " + contact, admin);
