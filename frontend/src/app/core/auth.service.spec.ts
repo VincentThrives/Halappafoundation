@@ -133,4 +133,11 @@ describe('AuthService, interceptor and guard', () => {
     expect(errMsg(new HttpErrorResponse({ error: 'oops', status: 500 }), 'Fallback')).toBe('Fallback');
     expect(errMsg(undefined)).toBe('Something went wrong');
   });
+
+  it('errMsg explains when the server cannot be reached or is waking up', () => {
+    expect(errMsg(new HttpErrorResponse({ status: 0 }), 'Could not sign in'))
+      .toBe('Could not sign in: the server could not be reached. Check your internet and try again.');
+    expect(errMsg(new HttpErrorResponse({ status: 503 }), 'Could not sign in'))
+      .toBe('Could not sign in: the server is starting up. Please try again in a minute.');
+  });
 });

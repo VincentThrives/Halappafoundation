@@ -28,7 +28,7 @@ The backend address comes from `frontend/src/environments/`:
 
 Code keeps writing short paths (`/api/...`); `core/backend.ts` adds `apiUrl` to every API request, and the `media` pipe
 does the same for uploaded photos (`<img [src]="p.image | media">`). The backend must list the site's address in
-`CORS_ORIGINS` (local default: `http://localhost:4210`).
+`CORS_ORIGINS` (local default: any `http://localhost` or `http://127.0.0.1` port).
 
 Open http://localhost:4210. Admin panel: http://localhost:4210/admin (or **Sign in** in the site's top bar).
 The first admin account is created on first start from `SEED_ADMIN_USERNAME` (default `admin`) and `SEED_ADMIN_PASSWORD`.
@@ -128,6 +128,7 @@ A readable list of every test case: **TEST-REPORT.html**.
 | `JWT_SECRET` | 64+ random characters (required in production; without it sign-ins end on every restart) |
 | `SEED_SUPERADMIN_USERNAME`, `SEED_SUPERADMIN_PASSWORD` | Creates the super admin once (default username `superadmin`); same rules as the admin: never generated, never changed by deploys. Sign in at `/superadmin` |
 | `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD` | Creates the first admin once, on a database with no admin. Required before the first start; later changes to it have no effect (the stored password stays fixed). Keep the database (`MONGODB_URI`) the same across deploys |
+| `SEED_ADMIN_RESET` | Forgotten admin password: set to `true` and redeploy, and `SEED_ADMIN_USERNAME` gets `SEED_ADMIN_PASSWORD` (created if missing). Remove it afterwards, or every restart sets it again |
 | `ADMIN_RECOVERY_EMAIL` | Where "Forgot password?" codes are emailed (default `MAIL_NOTIFY_TO`, then info@halappafoundation.in) |
 | `UPLOADS_DIR` | Persistent disk path for uploaded photos |
 | `PUBLIC_URL` | Optional: the backend's public https address, used in WhatsApp photo links (default: taken from each request) |

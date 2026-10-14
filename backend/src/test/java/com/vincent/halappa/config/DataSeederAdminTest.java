@@ -74,6 +74,50 @@ class DataSeederAdminTest {
         verify(admins).save(any());
     }
 
+    // ---------- SEED_ADMIN_RESET ----------
+
+    @Test
+    void resetSetsTheExistingAdminsPasswordFromTheSetting() {
+        ReflectionTestUtils.setField(seeder, "adminReset", true);
+        ReflectionTestUtils.setField(seeder, "adminPassword", "Admin@2026");
+        AdminUser existing = new AdminUser(); existing.setUsername("admin");
+        existing.setPasswordHash(encoder.encode("Forgotten@1")); existing.setResetCodeHash("x");
+        when(admins.findByUsername("admin")).thenReturn(java.util.Optional.of(existing));
+
+        seeder.seedAdmin();
+
+        verify(admins).save(existing);
+        assertThat(encoder.matches("Admin@2026", existing.getPasswordHash())).isTrue();
+        assertThat(existing.getResetCodeHash()).isNull();
+    }
+
+    @Test
+    void resetCreatesTheAdminWhenThatUsernameIsNew() {
+        ReflectionTestUtils.setField(seeder, "adminReset", true);
+        ReflectionTestUtils.setField(seeder, "adminPassword", "Admin@2026");
+        when(admins.findByUsername("admin")).thenReturn(java.util.Optional.empty());
+
+        seeder.seedAdmin();
+
+        ArgumentCaptor<AdminUser> saved = ArgumentCaptor.forClass(AdminUser.class);
+        verify(admins).save(saved.capture());
+        assertThat(saved.getValue().getUsername()).isEqualTo("admin");
+        assertThat(saved.getValue().superAdmin()).isFalse();
+        assertThat(encoder.matches("Admin@2026", saved.getValue().getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void resetNeverTouchesTheSuperAdminOrUsesABlankPassword() {
+        ReflectionTestUtils.setField(seeder, "adminReset", true);
+        ReflectionTestUtils.setField(seeder, "adminPassword", "");
+        seeder.seedAdmin();
+        ReflectionTestUtils.setField(seeder, "adminPassword", "Admin@2026");
+        AdminUser sup = new AdminUser(); sup.setUsername("admin"); sup.setRole(AdminUser.SUPER_ADMIN);
+        when(admins.findByUsername("admin")).thenReturn(java.util.Optional.of(sup));
+        seeder.seedAdmin();
+        verify(admins, never()).save(any());
+    }
+
     // ---------- super admin ----------
 
     @Test

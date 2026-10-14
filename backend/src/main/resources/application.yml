@@ -37,7 +37,7 @@ app:
     secret: ${JWT_SECRET:}
     ttl-minutes: 720
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:4210}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   uploads-dir: ${UPLOADS_DIR:./data/uploads}
   # Public https address of this backend, used in photo links WhatsApp downloads (e.g. https://halappa-api.onrender.com).
   # Blank = taken from each request (works behind Render, which sets the forwarded host/protocol).
@@ -58,6 +58,9 @@ app:
     # without SEED_ADMIN_PASSWORD no admin is created.
     admin-username: ${SEED_ADMIN_USERNAME:admin}
     admin-password: ${SEED_ADMIN_PASSWORD:}
+    # Forgot it? Set SEED_ADMIN_RESET=true and restart: that username gets SEED_ADMIN_PASSWORD (created if missing).
+    # Then remove SEED_ADMIN_RESET, or each restart sets it again.
+    admin-reset: ${SEED_ADMIN_RESET:false}
     # Super admin (recharges wallets, sets prices, sees the audit log). Same rules: created once, never generated.
     superadmin-username: ${SEED_SUPERADMIN_USERNAME:superadmin}
     superadmin-password: ${SEED_SUPERADMIN_PASSWORD:}
