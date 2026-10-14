@@ -31,6 +31,7 @@ function stub() {
     setRates: jasmine.createSpy('setRates').and.returnValue(of({ whatsappPaise: 90, smsPaise: 25, emailPaise: 0 })),
     recharge: jasmine.createSpy('recharge').and.returnValue(of(txn({ amountPaise: 50000, balanceAfterPaise: 118000 }))),
     deduct: jasmine.createSpy('deduct').and.returnValue(of(txn({ type: 'DEDUCT', amountPaise: -500, balanceAfterPaise: 67500 }))),
+    setAdminPassword: jasmine.createSpy('setAdminPassword').and.returnValue(of({ message: 'Password changed for admin' })),
     audit: jasmine.createSpy('audit').and.returnValue(of({ items: [txn(), txn({ id: 2, admin: '-', type: 'RATES', amountPaise: 0, note: 'Prices per message: WhatsApp ₹0.80' })], total: 2, page: 0, size: 50 })),
   };
 }
@@ -143,6 +144,32 @@ describe('Super admin page', () => {
     expect(c.editing()).toBeNull();
     expect(api.superAdmins).toHaveBeenCalledTimes(2);
     expect(api.audit).toHaveBeenCalledTimes(2);
+  });
+
+  it('set password: opens a password form, checks the length, confirms and saves', async () => {
+    const { f, c, api, ask, el } = make();
+    const btn = [...el.querySelectorAll('.acts button')].find(b => b.textContent!.includes('Set password')) as HTMLButtonElement;
+    btn.click();
+    f.detectChanges();
+    const input = el.querySelector('.form-row input[name="newPassword"]') as HTMLInputElement;
+    expect(input.type).toBe('password');
+    expect(el.querySelector('.form-row input[name="amount"]')).toBeNull();
+
+    (el.querySelector('.form-row .eye') as HTMLButtonElement).click();
+    f.detectChanges();
+    expect(input.type).toBe('text');
+
+    c.newPassword = 'short';
+    await c.savePassword();
+    expect(c.toast()).toBe('Password must be 8 to 100 characters');
+    expect(ask).not.toHaveBeenCalled();
+
+    c.newPassword = 'Admin@2026';
+    await c.savePassword();
+    expect(ask.calls.mostRecent().args[0].title).toBe('Set a new password for admin?');
+    expect(api.setAdminPassword).toHaveBeenCalledWith('admin', 'Admin@2026');
+    expect(c.toast()).toBe('New password set for admin.');
+    expect(c.editing()).toBeNull();
   });
 
   it('deduct is marked as dangerous and cancelling the popup changes nothing', async () => {

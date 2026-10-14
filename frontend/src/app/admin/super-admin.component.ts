@@ -23,9 +23,11 @@ export class SuperAdminComponent {
   // wallets
   readonly admins = signal<WalletAdmin[]>([]);
   /** Admin whose money form is open, and what it does. */
-  readonly editing = signal<{ username: string; mode: 'recharge' | 'deduct' } | null>(null);
+  readonly editing = signal<{ username: string; mode: 'recharge' | 'deduct' | 'password' } | null>(null);
   amount = '';
   note = '';
+  newPassword = '';
+  showPw = false;
   readonly busy = signal(false);
 
   // prices (rupees, as typed)
@@ -66,10 +68,12 @@ export class SuperAdminComponent {
   }
   pages() { return Math.max(1, Math.ceil(this.total() / 50)); }
 
-  open(username: string, mode: 'recharge' | 'deduct') {
+  open(username: string, mode: 'recharge' | 'deduct' | 'password') {
     this.editing.set({ username, mode });
     this.amount = '';
     this.note = '';
+    this.newPassword = '';
+    this.showPw = false;
   }
   close() { this.editing.set(null); }
 
@@ -104,6 +108,24 @@ export class SuperAdminComponent {
         this.loadAdmins();
         this.load(0);
       },
+      error: err => { this.busy.set(false); this.say(errMsg(err), true); },
+    });
+  }
+
+  /** New password for an admin who forgot theirs; the old one isn't needed. */
+  async savePassword() {
+    const e = this.editing();
+    if (!e) return;
+    const pw = this.newPassword;
+    if (pw.length < 8 || pw.length > 100) { this.say('Password must be 8 to 100 characters', true); return; }
+    const ok = await this.confirmer.ask({
+      title: `Set a new password for ${e.username}?`, icon: 'settings', confirmText: 'Set password',
+      message: 'The old password stops working right away. Tell the admin the new one.',
+    });
+    if (!ok) return;
+    this.busy.set(true);
+    this.api.setAdminPassword(e.username, pw).subscribe({
+      next: () => { this.busy.set(false); this.say(`New password set for ${e.username}.`); this.close(); },
       error: err => { this.busy.set(false); this.say(errMsg(err), true); },
     });
   }
