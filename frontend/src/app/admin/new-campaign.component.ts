@@ -323,7 +323,7 @@ export class NewCampaignComponent {
       if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }
     }
     if (this.short()) {
-      this.error.set(`Not enough balance: this send costs ${rupees(this.costPaise())} and the wallet has ${rupees(this.wallet()!.balancePaise)}. Ask the super admin to recharge.`);
+      this.error.set(`Not enough balance: this send costs ${rupees(this.costPaise())} and the wallet has ${rupees(this.wallet()!.balancePaise)}. Ask Vincent Thrives to recharge.`);
       return;
     }
     if (this.estimate() > this.max()) { this.error.set(`That's more than ${this.max()} people. Split the list into smaller sends.`); return; }

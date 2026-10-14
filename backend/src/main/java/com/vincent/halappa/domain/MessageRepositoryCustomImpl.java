@@ -9,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
+import org.springframework.data.mongodb.core.aggregation.BooleanOperators;
+import org.springframework.data.mongodb.core.aggregation.ComparisonOperators;
 import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -68,7 +70,10 @@ class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
                 match(match),
                 group("channel", "contact")
                         .max("_id").as("lastId")
-                        .sum(ConditionalOperators.when(where("direction").is("in").and("adminRead").is(false)).then(1).otherwise(0)).as("unread")
+                        // Explicit $and: a chained Criteria here dropped the adminRead check, so opened threads stayed "unread".
+                        .sum(ConditionalOperators.when(BooleanOperators.And.and(
+                                ComparisonOperators.valueOf("direction").equalToValue("in"),
+                                ComparisonOperators.valueOf("adminRead").equalToValue(false))).then(1).otherwise(0)).as("unread")
                         .sum(ConditionalOperators.when(where("direction").is("in")).then(1).otherwise(0)).as("received")));
         if (!all) ops.add(match(where("received").gt(0)));
 

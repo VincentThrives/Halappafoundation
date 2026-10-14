@@ -1,5 +1,9 @@
 .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; background: #f7f1e6; }
-.side { background: var(--maroon-grad); color: #fff; display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
+.side { background: var(--maroon-grad); color: #fff; display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; height: 100dvh;
+  /* Scrolls on its own when the menu is taller than the screen (short laptops, phones, zoomed in). */
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(245,210,122,.35) transparent; }
+.side > * { flex-shrink: 0; }
+.foot { padding-top: 12px; }
 .brand { display: flex; gap: 12px; align-items: center; color: #fff; text-decoration: none; font-family: var(--font-head); font-size: 1.2rem; line-height: 1.1; padding: 0 8px 20px; border-bottom: 1px solid rgba(245,210,122,.2); }
 .brand img { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--g-500); }
 .brand small { color: var(--g-400); font-family: var(--font-body); font-size: .75rem; letter-spacing: .2em; text-transform: uppercase; }

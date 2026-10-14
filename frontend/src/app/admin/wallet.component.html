@@ -1,5 +1,5 @@
 <div class="head">
-  <div><h1>Wallet</h1><p>Money for WhatsApp, SMS and email sends. Recharges are added by the super admin.</p></div>
+  <div><h1>Wallet</h1><p>Money for WhatsApp, SMS and email sends. Recharges are added by Vincent Thrives.</p></div>
   <button class="btn btn-ghost btn-sm" (click)="refresh()"><app-icon name="history" /> Refresh</button>
 </div>
 
@@ -9,7 +9,7 @@
       <small>Available balance</small>
       <strong>{{ rupees(w.balancePaise) }}</strong>
       @if (w.superAdmin) { <span class="muted">Super admin sends aren't charged.</span> }
-      @else if (w.balancePaise <= 0) { <span class="muted">Ask the super admin to recharge before sending.</span> }
+      @else if (w.balancePaise <= 0) { <span class="muted">Ask Vincent Thrives to recharge before sending messages.</span> }
     </div>
     <div class="card prices">
       <small>Price per message</small>
