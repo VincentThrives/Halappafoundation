@@ -133,12 +133,17 @@ public class WebhookController {
     private void msg91Event(JsonNode e) {
         String direction = e.path("direction").asText("").toLowerCase();
         String customer = Contacts.phone(firstOf(e, "customer_number", "customerNumber", "mobile", "sender", "from"));
-        String status = e.path("status").asText("").toLowerCase();
-        boolean inbound = direction.startsWith("in") || (direction.isEmpty() && status.isEmpty() && customer != null);
+        String rawStatus = e.path("status").asText("").toLowerCase();
+        // MSG91 "Webhook (New)" puts the status in eventName and marks reports with direction "1".
+        String status = rawStatus.isEmpty() ? e.path("eventName").asText("").toLowerCase() : rawStatus;
+        boolean outbound = direction.startsWith("out") || "1".equals(direction);
+        boolean inbound = direction.startsWith("in") || "0".equals(direction)
+                || (!outbound && direction.isEmpty() && rawStatus.isEmpty() && customer != null
+                    && (e.path("eventName").asText("").isEmpty() || hasMessage(e)));
         if (inbound) {
             if (customer == null) { log.warn("MSG91 inbound WhatsApp without a customer number: {}", cap(e)); return; }
-            String id = firstOf(e, "message_uuid", "uuid", "messageId", "id", "request_id");
-            String name = firstOf(e, "customer_name", "profile_name", "name");
+            String id = firstOf(e, "message_uuid", "uuid", "messageId", "id", "request_id", "requestId");
+            String name = firstOf(e, "customer_name", "customerName", "profile_name", "name");
             inbox.recordIn("whatsapp", customer, name, null, msg91Text(e), id);
             return;
         }
@@ -155,6 +160,14 @@ public class WebhookController {
             String id = e.path(key).asText(null);
             if (id != null && !id.isBlank()) inbox.updateStatus(id, mapped, error);
         }
+    }
+
+    /** True when the event carries a person's message (so an eventName on it doesn't make it a delivery report). */
+    private static boolean hasMessage(JsonNode e) {
+        for (String key : new String[] { "contentType", "message_type", "text", "content", "messages", "caption", "button", "interactive" }) {
+            if (!e.path(key).asText("").isBlank() || e.path(key).isContainerNode()) return true;
+        }
+        return false;
     }
 
     /** The person's message text from an MSG91 inbound event (text, button, caption or the message type). */

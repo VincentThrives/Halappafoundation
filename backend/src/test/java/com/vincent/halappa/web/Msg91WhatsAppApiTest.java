@@ -410,6 +410,31 @@ class Msg91WhatsAppApiTest {
     }
 
     @Test
+    void readsMsg91WebhookNewPayloads() throws Exception {
+        // "On Inbound Request Received" with MSG91's own field names (eventName is set even on inbound messages)
+        webhook("{\"companyId\":\"384905\",\"customerNumber\":\"919845066666\",\"eventName\":\"delivered\",\"integratedNumber\":\"918618545907\","
+                + "\"customerName\":\"Manas\",\"contentType\":\"text\",\"text\":\"Hi\",\"uuid\":\"n1\",\"ts\":\"2026-10-14T15:25:55+05:30\"}");
+        JsonNode t = thread("919845066666");
+        assertThat(t).hasSize(1);
+        assertThat(t.get(0).path("direction").asText()).isEqualTo("in");
+        assertThat(t.get(0).path("body").asText()).isEqualTo("Hi");
+        assertThat(t.get(0).path("name").asText()).isEqualTo("Manas");
+
+        // "On Outbound Report Received": status in eventName, direction "1", matched by requestId
+        String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("name", "One", "channel", "whatsapp", "template", "kit_invite", "message", "Hi",
+                        "people", List.of(Map.of("name", "A", "phone", "9845077777"))))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        waitUntilFinished(json.readTree(res).path("campaign").path("id").asLong());
+        String requestId = messages.findAll().stream().filter(m -> "out".equals(m.getDirection())).findFirst().orElseThrow().getProviderId();
+        webhook("{\"companyId\":\"384905\",\"customerNumber\":\"919845077777\",\"requestId\":\"" + requestId + "\",\"eventName\":\"read\","
+                + "\"integratedNumber\":\"918618545907\",\"direction\":\"1\",\"templateName\":\"kit_invite\",\"ts\":\"2026-10-14T15:14:48+05:30\"}");
+        JsonNode out = thread("919845077777");
+        assertThat(out).hasSize(1);
+        assertThat(out.get(0).path("status").asText()).isEqualTo("read");
+    }
+
+    @Test
     void failedDeliveryShowsTheReason() throws Exception {
         String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("name", "One", "channel", "whatsapp", "template", "kit_invite", "message", "Hi",
