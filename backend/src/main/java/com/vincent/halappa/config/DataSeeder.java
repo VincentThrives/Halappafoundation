@@ -24,6 +24,7 @@ public class DataSeeder implements CommandLineRunner {
 
     @Value("${app.seed.admin-username:admin}") private String adminUser;
     @Value("${app.seed.admin-password:}") private String adminPassword;
+    @Value("${app.seed.admin-reset:false}") private boolean adminReset;
     @Value("${app.seed.superadmin-username:superadmin}") private String superUser;
     @Value("${app.seed.superadmin-password:}") private String superPassword;
 
@@ -141,6 +142,7 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     void seedAdmin() {
+        if (adminReset) { resetAdmin(); return; }
         if (admins.findAll().stream().anyMatch(a -> !a.superAdmin())) return; // an admin exists (the super admin doesn't count)
         if (adminPassword == null || adminPassword.isBlank()) {
             log.error("No admin account yet: set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_USERNAME) and restart to create it.");
@@ -151,6 +153,27 @@ public class DataSeeder implements CommandLineRunner {
         a.setPasswordHash(encoder.encode(adminPassword));
         admins.save(a);
         log.info("Created admin '{}' from SEED_ADMIN_PASSWORD. It will not be changed by later restarts or deploys.", adminUser);
+    }
+
+    /** SEED_ADMIN_RESET=true: set (or create) SEED_ADMIN_USERNAME with SEED_ADMIN_PASSWORD on this start. For a forgotten password. */
+    void resetAdmin() {
+        if (adminPassword == null || adminPassword.isBlank()) {
+            log.error("SEED_ADMIN_RESET is on but SEED_ADMIN_PASSWORD is empty: nothing was changed.");
+            return;
+        }
+        AdminUser a = admins.findByUsername(adminUser).orElseGet(AdminUser::new);
+        if (a.superAdmin()) {
+            log.error("SEED_ADMIN_RESET: '{}' is the super admin; choose another SEED_ADMIN_USERNAME. Nothing was changed.", adminUser);
+            return;
+        }
+        a.setUsername(adminUser);
+        a.setPasswordHash(encoder.encode(adminPassword));
+        a.setResetCodeHash(null);
+        a.setResetExpiresAt(null);
+        a.setResetAttempts(0);
+        admins.save(a);
+        log.warn("SEED_ADMIN_RESET: admin '{}' now uses SEED_ADMIN_PASSWORD. Remove SEED_ADMIN_RESET (or set it to false) now, "
+                + "or every restart will set this password again.", adminUser);
     }
 
     private static GalleryItem photo(String cat, String en, String kn, String img) {
