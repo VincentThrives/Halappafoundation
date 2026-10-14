@@ -36,7 +36,7 @@ class ContentAdminApiTest extends ApiTestBase {
         JsonNode post = read(res);
         long id = post.get("id").asLong();
         String image = post.get("image").asText();
-        assertThat(Path.of("target/test-uploads", image.substring("/uploads/".length()))).exists();
+        assertThat(stored(image)).isTrue();
 
         // Visible on the public site
         mvc.perform(get("/api/public/posts").param("section", "press").param("category", "news"))
@@ -49,7 +49,7 @@ class ContentAdminApiTest extends ApiTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.category").value("interviews"))
                 .andExpect(jsonPath("$.image").doesNotExist());
-        assertThat(Path.of("target/test-uploads", image.substring("/uploads/".length()))).doesNotExist();
+        assertThat(stored(image)).isFalse();
 
         mvc.perform(delete("/api/admin/posts/" + id).with(admin())).andExpect(status().isOk());
         mvc.perform(get("/api/public/posts/" + id)).andExpect(status().isNotFound());
@@ -172,19 +172,19 @@ class ContentAdminApiTest extends ApiTestBase {
         String post = mvc.perform(multipart("/api/admin/posts").file(new MockMultipartFile("image", "c.png", "image/png", PNG)).with(admin())
                         .param("section", "views").param("category", "blogs").param("titleEn", "With image"))
                 .andReturn().getResponse().getContentAsString();
-        Path postImg = Path.of("target/test-uploads", read(post).get("image").asText().substring("/uploads/".length()));
-        assertThat(postImg).exists();
+        String postImg = read(post).get("image").asText();
+        assertThat(stored(postImg)).isTrue();
         mvc.perform(delete("/api/admin/posts/" + read(post).get("id").asLong()).with(admin())).andExpect(status().isOk());
-        assertThat(postImg).doesNotExist();
+        assertThat(stored(postImg)).isFalse();
 
         String photos = mvc.perform(multipart("/api/admin/gallery").file(new MockMultipartFile("images", "1.png", "image/png", PNG)).with(admin())
                         .param("category", "timeline"))
                 .andReturn().getResponse().getContentAsString();
         JsonNode p = read(photos).get(0);
-        Path photoImg = Path.of("target/test-uploads", p.get("image").asText().substring("/uploads/".length()));
-        assertThat(photoImg).exists();
+        String photoImg = p.get("image").asText();
+        assertThat(stored(photoImg)).isTrue();
         mvc.perform(delete("/api/admin/gallery/" + p.get("id").asLong()).with(admin())).andExpect(status().isOk());
-        assertThat(photoImg).doesNotExist();
+        assertThat(stored(photoImg)).isFalse();
         mvc.perform(get(p.get("image").asText())).andExpect(status().isNotFound());
     }
 
@@ -194,12 +194,12 @@ class ContentAdminApiTest extends ApiTestBase {
                         .param("section", "views").param("category", "blogs").param("titleEn", "Replace me"))
                 .andReturn().getResponse().getContentAsString();
         long id = read(post).get("id").asLong();
-        Path oldImg = Path.of("target/test-uploads", read(post).get("image").asText().substring("/uploads/".length()));
+        String oldImg = read(post).get("image").asText();
         String updated = mvc.perform(multipart(HttpMethod.PUT, "/api/admin/posts/" + id).file(new MockMultipartFile("image", "b.png", "image/png", PNG)).with(admin())
                         .param("section", "views").param("category", "blogs").param("titleEn", "Replaced"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertThat(oldImg).doesNotExist();
-        assertThat(Path.of("target/test-uploads", read(updated).get("image").asText().substring("/uploads/".length()))).exists();
+        assertThat(stored(oldImg)).isFalse();
+        assertThat(stored(read(updated).get("image").asText())).isTrue();
         // Editing without a new file keeps the current image.
         mvc.perform(multipart(HttpMethod.PUT, "/api/admin/posts/" + id).with(admin())
                         .param("section", "views").param("category", "blogs").param("titleEn", "Kept"))
@@ -252,8 +252,17 @@ class ContentAdminApiTest extends ApiTestBase {
 
     @Test
     void uploadedFilesAreServed() throws Exception {
+        // photos stored before the move to MongoDB are still served from the old disk folder
+        String legacy = "0123456789abcdef0123456789abcdef.png";
         Files.createDirectories(Path.of("target/test-uploads"));
-        Files.write(Path.of("target/test-uploads/probe.png"), PNG);
-        mvc.perform(get("/uploads/probe.png")).andExpect(status().isOk());
+        Files.write(Path.of("target/test-uploads", legacy), PNG);
+        mvc.perform(get("/uploads/" + legacy)).andExpect(status().isOk()).andExpect(content().contentType("image/png"));
+        // only names the site creates itself; anything else is not found
+        mvc.perform(get("/uploads/ffffffffffffffffffffffffffffffff.png")).andExpect(status().isNotFound());
+        mvc.perform(get("/uploads/probe.png")).andExpect(status().isNotFound());
+    }
+
+    private boolean stored(String path) throws Exception {
+        return mvc.perform(get(path)).andReturn().getResponse().getStatus() == 200;
     }
 }

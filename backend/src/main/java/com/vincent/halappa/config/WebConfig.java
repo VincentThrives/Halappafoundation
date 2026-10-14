@@ -12,24 +12,18 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Serves uploaded photos from disk and, when WEB_STATIC_DIR is set, the built Angular app
+ * When WEB_STATIC_DIR is set, serves the built Angular app
  * with an index.html fallback so deep links like /gallery/election-rally work on refresh.
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
-    @Value("${app.uploads-dir}")
-    private String uploadsDir;
 
     @Value("${app.web.static-dir:}")
     private String staticDir;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(dirUri(Path.of(uploadsDir)))
-                .setCachePeriod(86400);
-
+        // Uploaded photos (/uploads/**) are served by UploadsController from MongoDB.
         if (staticDir != null && !staticDir.isBlank()) {
             Path root = Path.of(staticDir).toAbsolutePath();
             registry.addResourceHandler("/**")
