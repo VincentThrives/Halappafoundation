@@ -1,6 +1,7 @@
 package com.vincent.halappa.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -23,6 +24,7 @@ import java.util.Map;
  * </ul>
  * Plus wa.me helpers for manual mode when neither is connected.
  */
+@Slf4j
 @Service
 public class WhatsAppService {
 
@@ -286,6 +288,8 @@ public class WhatsAppService {
                     .retrieve()
                     .body(JsonNode.class);
             if (res == null) throw new IllegalStateException("MSG91: empty response");
+            // MSG91 accepts bulk sends first and processes them later; keep its exact answer for checking in the server log.
+            log.info("MSG91 {} -> {}", path, cap(res.toString()));
             boolean failed = res.path("hasError").asBoolean(false)
                     || "fail".equalsIgnoreCase(res.path("status").asText())
                     || "error".equalsIgnoreCase(res.path("type").asText());
