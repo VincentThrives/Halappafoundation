@@ -71,17 +71,33 @@ public class InboxService {
     }
 
     /** Delivery receipts: statuses only move forward (sent → delivered → read); failed wins unless already read. */
-    public void updateStatus(String providerId, String status, String error) {
-        messages.findFirstByProviderIdAndDirection(providerId, "out").ifPresent(m -> {
-            boolean forward = OUT_ORDER.indexOf(status) > OUT_ORDER.indexOf(m.getStatus());
-            boolean fail = "failed".equals(status) && !"read".equals(m.getStatus());
-            if (forward || fail) {
-                m.setStatus(status);
-                if (error != null) m.setError(cap(error, 1000));
-                m.setUpdatedAt(LocalDateTime.now());
-                messages.save(m);
-            }
-        });
+    public boolean updateStatus(String providerId, String status, String error) {
+        Optional<Message> m = messages.findFirstByProviderIdAndDirection(providerId, "out");
+        m.ifPresent(x -> applyStatus(x, status, error));
+        return m.isPresent();
+    }
+
+    /**
+     * Fallback when a receipt's id doesn't match what the provider returned at send time (MSG91 bulk): the newest
+     * WhatsApp message we sent to that number in the last 3 days that is still waiting for this update.
+     */
+    public void updateLatestTo(String contact, String status, String error) {
+        if (contact == null) return;
+        messages.findFirstByChannelAndContactAndDirectionAndUpdatedAtAfterOrderByIdDesc(
+                        "whatsapp", contact, "out", LocalDateTime.now().minusDays(3))
+                .filter(m -> !"read".equals(m.getStatus()) && !"failed".equals(m.getStatus()))
+                .ifPresent(m -> applyStatus(m, status, error));
+    }
+
+    private void applyStatus(Message m, String status, String error) {
+        boolean forward = OUT_ORDER.indexOf(status) > OUT_ORDER.indexOf(m.getStatus());
+        boolean fail = "failed".equals(status) && !"read".equals(m.getStatus());
+        if (forward || fail) {
+            m.setStatus(status);
+            if (error != null) m.setError(cap(error, 1000));
+            m.setUpdatedAt(LocalDateTime.now());
+            messages.save(m);
+        }
     }
 
     // ---------- Reading ----------

@@ -435,6 +435,24 @@ class Msg91WhatsAppApiTest {
     }
 
     @Test
+    void reportsWithAnUnknownIdUpdateTheLatestMessageToThatNumber() throws Exception {
+        String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("name", "One", "channel", "whatsapp", "template", "kit_invite", "message", "Hi",
+                        "people", List.of(Map.of("name", "A", "phone", "9845088888"), Map.of("name", "B", "phone", "9845099990"))))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long id = json.readTree(res).path("campaign").path("id").asLong();
+        waitUntilFinished(id);
+        // MSG91's per-message id differs from the bulk request id we stored
+        webhook("{\"customerNumber\":\"919845088888\",\"requestId\":\"some-other-id\",\"eventName\":\"delivered\",\"direction\":\"1\"}");
+        webhook("{\"customerNumber\":\"919845099990\",\"requestId\":\"another-id\",\"eventName\":\"Failed By Meta\",\"direction\":\"1\","
+                + "\"reason\":\"131049: healthy ecosystem\"}");
+        assertThat(thread("919845088888").get(0).path("status").asText()).isEqualTo("delivered");
+        assertThat(thread("919845099990").get(0).path("status").asText()).isEqualTo("failed");
+        mvc.perform(get("/api/admin/campaigns/" + id + "/recipients").with(admin()).param("status", "failed"))
+                .andExpect(jsonPath("$.items[0].error").value("131049: healthy ecosystem"));
+    }
+
+    @Test
     void failedDeliveryShowsTheReason() throws Exception {
         String res = mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("name", "One", "channel", "whatsapp", "template", "kit_invite", "message", "Hi",

@@ -152,14 +152,16 @@ public class WebhookController {
             case "delivered" -> "delivered";
             case "read", "seen" -> "read";
             case "failed", "rejected", "undelivered" -> "failed";
-            default -> null;
+            default -> status.contains("fail") ? "failed" : null; // e.g. "failed by meta"
         };
         if (mapped == null) return;
         String error = "failed".equals(mapped) ? firstOf(e, "failure_reason", "reason", "error", "errors", "description") : null;
+        boolean matched = false;
         for (String key : new String[] { "request_id", "requestId", "message_uuid", "uuid" }) {
             String id = e.path(key).asText(null);
-            if (id != null && !id.isBlank()) inbox.updateStatus(id, mapped, error);
+            if (id != null && !id.isBlank() && inbox.updateStatus(id, mapped, error)) matched = true;
         }
+        if (!matched) inbox.updateLatestTo(customer, mapped, error);
     }
 
     /** True when the event carries a person's message (so an eventName on it doesn't make it a delivery report). */
