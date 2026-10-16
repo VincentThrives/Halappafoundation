@@ -57,6 +57,8 @@ export interface Channels {
   /** "meta" or "msg91"; MSG91 sends approved templates only. */
   whatsappProvider?: string; whatsappTemplatesOnly?: boolean;
   sms: boolean; smsInbound: boolean; maxRecipients: number;
+  /** Default MSG91 SMS template ID from the server (MSG91_FLOW_ID); "" when not set. */
+  smsTemplate?: string;
 }
 
 export interface ImportRow { row: number; name?: string; phone?: string; email?: string; voucher?: string; }

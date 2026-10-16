@@ -70,7 +70,9 @@ public class CampaignService {
             /** The template's header type ("IMAGE" needs headerImage). */
             String templateHeader,
             /** Public https link of the photo for an IMAGE header (from the header-image upload). */
-            String headerImage) {}
+            String headerImage,
+            /** SMS: values for the template's ##variables## (each may use {name} and {voucher}). */
+            Map<String, String> smsVars) {}
 
     public record Stats(long total, long queued, long sent, long delivered, long read, long failed, long manual,
                         long cancelled, long attended) {}
@@ -111,8 +113,15 @@ public class CampaignService {
                 if (isBlank(r.subject()) || isBlank(r.message())) throw ApiException.badRequest("Email needs a subject and a message");
             }
             case "sms" -> {
-                if (!sms.enabled()) throw ApiException.badRequest("SMS is not connected. Add MSG91 and DLT template details on the server first.");
-                if (isBlank(r.message())) throw ApiException.badRequest("Paste the approved SMS text so it can be logged");
+                if (!sms.enabled()) throw ApiException.badRequest("SMS is not connected. Add MSG91 details on the server first.");
+                if (isBlank(r.template()) && sms.defaultTemplate().isBlank())
+                    throw ApiException.badRequest("Enter the MSG91 SMS template ID (MSG91 → SMS → Templates)");
+                if (isBlank(r.message())) throw ApiException.badRequest("Paste the approved SMS text exactly as in MSG91");
+                for (String var : Contacts.smsVariables(r.message())) {
+                    boolean auto = var.equalsIgnoreCase("name") || var.equalsIgnoreCase("voucher");
+                    String given = r.smsVars() == null ? null : r.smsVars().get(var);
+                    if (!auto && isBlank(given)) throw ApiException.badRequest("Fill in ##" + var + "## of the SMS");
+                }
             }
         }
 
@@ -137,6 +146,18 @@ public class CampaignService {
                     : r.templateParams().stream().map(s -> cap(s == null ? "" : s.trim(), 500)).toList();
             c.setTemplateParams(tp.isEmpty() ? null : tp);
             c.setHeaderImage(isBlank(r.headerImage()) ? null : cap(r.headerImage().trim(), 1000));
+        }
+        List<String> smsVarNames = channel.equals("sms") ? Contacts.smsVariables(r.message()) : List.of();
+        if (channel.equals("sms")) {
+            c.setTemplate(isBlank(r.template()) ? null : cap(r.template().trim(), 100)); // null = server default
+            c.setTemplateBody(null);
+            c.setTemplateParams(null);
+            Map<String, String> vars = new LinkedHashMap<>();
+            for (String k : smsVarNames) {
+                String val = r.smsVars() == null ? null : r.smsVars().get(k);
+                if (!isBlank(val)) vars.put(k, cap(val.trim(), 500));
+            }
+            c.setSmsVars(vars.isEmpty() ? null : vars);
         }
         c.setVoucherMode(v.mode() == null ? "none" : v.mode());
         c.setVoucherInfo(voucherInfo(v, codes));
@@ -171,7 +192,10 @@ public class CampaignService {
             m.setName(cap(p.name(), 150));
             m.setVoucher(voucher);
             m.setSubject(channel.equals("email") ? cap(Contacts.personalise(r.subject(), p.name(), voucher), 300) : null);
-            String body = c.getTemplateBody() != null
+            String body = channel.equals("sms") && !smsVarNames.isEmpty()
+                    // the SMS with this person's values in its ##variables##
+                    ? Contacts.fillSms(r.message(), Contacts.smsValues(c.getSmsVars(), smsVarNames, p.name(), voucher))
+                    : c.getTemplateBody() != null
                     // exactly what WhatsApp shows this person: the template with their values in {{1}}, {{2}}…
                     ? Contacts.fillTemplate(c.getTemplateBody(), Contacts.templateParams(c.getTemplateParams(), p.name(), voucher))
                     : Contacts.personalise(isBlank(r.message()) ? "[template " + c.getTemplate() + "]" : r.message(), p.name(), voucher);

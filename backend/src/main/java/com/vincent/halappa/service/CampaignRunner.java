@@ -73,7 +73,7 @@ public class CampaignRunner {
                 return;
             }
             switch (c.getChannel()) {
-                case "sms" -> sendSms(batch);
+                case "sms" -> sendSms(c, batch);
                 case "email" -> batch.forEach(m -> { sendEmail(m); pause(emailDelay); });
                 default -> {
                     for (Message m : batch) {
@@ -104,11 +104,13 @@ public class CampaignRunner {
         }
     }
 
-    private void sendSms(List<Message> batch) {
+    private void sendSms(Campaign c, List<Message> batch) {
+        List<String> vars = Contacts.smsVariables(c.getMessage());
         for (int i = 0; i < batch.size(); i += smsBatch) {
             List<Message> part = batch.subList(i, Math.min(batch.size(), i + smsBatch));
             try {
-                String id = sms.sendBatch(part.stream().map(m -> new SmsService.Recipient(m.getContact(), m.getName(), m.getVoucher())).toList());
+                String id = sms.sendBatch(c.getTemplate(), part.stream().map(m -> new SmsService.Recipient(m.getContact(),
+                        Contacts.smsValues(c.getSmsVars(), vars, m.getName(), m.getVoucher()))).toList());
                 part.forEach(m -> done(m, "sent", id, null));
             } catch (Exception e) {
                 part.forEach(m -> done(m, "failed", null, e.getMessage()));

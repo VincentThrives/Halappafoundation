@@ -171,6 +171,47 @@ describe('New bulk message', () => {
     expect(body.message).toBe(DEFAULT_INVITE);
   });
 
+  describe('SMS with a DLT template', () => {
+    const SMS_TEXT = 'Dear ##name##, programme on ##date## at ##place##. Voucher ##voucher##. -HALAPA';
+
+    it('pre-fills the server template ID, asks only for the typed blanks, previews and sends them', async () => {
+      create({ ...ALL, smsTemplate: 'TPL-DEFAULT' });
+      c.upload(new File(['x'], 'list.xlsx'));
+      c.pickChannel('sms');
+      expect(c.smsTemplateId).toBe('TPL-DEFAULT');
+      c.message = SMS_TEXT;
+      f.detectChanges();
+      expect(c.smsVarNames()).toEqual(['name', 'date', 'place', 'voucher']);
+      expect(c.smsTyped()).toEqual(['date', 'place']);
+      const inputs = f.nativeElement.querySelectorAll('.vars .var input');
+      expect(inputs.length).toBe(2); // name and voucher fill themselves
+
+      await c.send();
+      expect(c.error()).toBe('Fill in ##date## of the SMS.');
+      expect(api.createCampaign).not.toHaveBeenCalled();
+
+      c.setSmsVar('date', '25-10-2026');
+      c.setSmsVar('place', 'Madhugiri');
+      expect(c.preview()).toBe('Dear Ramesh, programme on 25-10-2026 at Madhugiri. Voucher HV-1. -HALAPA');
+      await c.send();
+      expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+        channel: 'sms', template: 'TPL-DEFAULT', message: SMS_TEXT,
+        smsVars: { name: '', date: '25-10-2026', place: 'Madhugiri', voucher: '' },
+      }));
+    });
+
+    it('needs a template ID when the server has none', async () => {
+      create(ALL);
+      c.pickChannel('sms');
+      c.message = SMS_TEXT;
+      c.source = 'pasted';
+      c.pasted = '9845012345';
+      await c.send();
+      expect(c.error()).toContain('Enter the MSG91 SMS template ID');
+      expect(api.createCampaign).not.toHaveBeenCalled();
+    });
+  });
+
   it('opens the progress page after sending', async () => {
     create();
     const router = TestBed.inject(Router);

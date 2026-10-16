@@ -52,6 +52,7 @@ public class AdminCampaignController {
         m.put("email", mail.enabled());
         m.put("emailInbound", imap.enabled());
         m.put("sms", sms.enabled());
+        m.put("smsTemplate", sms.defaultTemplate()); // MSG91_FLOW_ID, pre-filled on the SMS form
         m.put("smsInbound", !smsToken.isBlank());
         m.put("maxRecipients", max);
         return m;

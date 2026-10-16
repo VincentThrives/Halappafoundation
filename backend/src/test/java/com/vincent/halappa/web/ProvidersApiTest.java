@@ -356,6 +356,36 @@ class ProvidersApiTest {
     }
 
     @Test
+    void smsWithItsOwnTemplateFillsEveryVariable() throws Exception {
+        String text = "Dear ##name##, programme on ##date## at ##place##. Voucher ##voucher##. -HALAPA";
+        JsonNode c = createCampaign(Map.of("name", "SMS event", "channel", "sms", "template", "TPL-EVENT", "message", text,
+                "smsVars", Map.of("date", "25-10-2026", "place", "Madhugiri"),
+                "people", List.of(Map.of("name", "Asha", "phone", "9845012345")), "voucher", Map.of("mode", "auto", "prefix", "E-", "start", 1)));
+        long id = c.path("campaign").path("id").asLong();
+        waitUntilFinished(id);
+        JsonNode call = SMS_CALLS.get(SMS_CALLS.size() - 1);
+        assertThat(call.path("template_id").asText()).isEqualTo("TPL-EVENT");
+        JsonNode r = call.path("recipients").get(0);
+        assertThat(r.path("mobiles").asText()).isEqualTo("919845012345");
+        assertThat(r.path("name").asText()).isEqualTo("Asha");
+        assertThat(r.path("date").asText()).isEqualTo("25-10-2026");
+        assertThat(r.path("place").asText()).isEqualTo("Madhugiri");
+        assertThat(r.path("voucher").asText()).isEqualTo("E-0001");
+        // the log shows exactly what the person received
+        mvc.perform(get("/api/admin/campaigns/" + id + "/recipients").with(admin()))
+                .andExpect(jsonPath("$.items[0].body").value("Dear Asha, programme on 25-10-2026 at Madhugiri. Voucher E-0001. -HALAPA"));
+    }
+
+    @Test
+    void smsVariablesMustBeFilledBeforeSending() throws Exception {
+        mvc.perform(post("/api/admin/campaigns").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("name", "SMS event", "channel", "sms", "template", "TPL-EVENT",
+                                "message", "Event on ##date##, ##name##", "people", List.of(Map.of("phone", "9845012345"))))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Fill in ##date## of the SMS"));
+    }
+
+    @Test
     void incomingSmsFromJsonOrForm() throws Exception {
         mvc.perform(post("/api/webhooks/sms").param("token", "sms-secret").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"sender\":\"919845012345\",\"message\":\"YES\"}")).andExpect(status().isOk());
