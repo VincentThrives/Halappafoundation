@@ -45,7 +45,7 @@ describe('Password eye button', () => {
   it('all three Change-password boxes have their own eye', () => {
     TestBed.configureTestingModule({
       providers: [
-        { provide: AdminApi, useValue: { settings: () => of({}), saveSettings: () => of({}), changePassword: () => of({}) } },
+        { provide: AdminApi, useValue: { settings: () => of({}), saveSettings: () => of({}), changePassword: () => of({}), smsTemplates: () => of([]) } },
         { provide: ApiService, useValue: { refreshSettings() {} } },
       ],
     });

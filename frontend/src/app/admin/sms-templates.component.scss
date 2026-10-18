@@ -1,0 +1,12 @@
+:host { display: block; }
+.sms-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sms-head h2 { margin: 0; }
+.sms-form { background: var(--cream); border-radius: 12px; padding: 16px; }
+.btns { display: flex; gap: 8px; }
+.tok { display: inline-block; font-family: monospace; font-size: .85rem; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; margin: 2px 4px 2px 0; }
+.warn { color: #9a1220; margin: 6px 0 0; }
+.sms-item { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.sms-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sms-top code { font-size: .85rem; color: var(--muted); word-break: break-all; }
+.sms-top .acts { margin-left: auto; display: flex; gap: 6px; }
+.sms-text { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .95rem; }

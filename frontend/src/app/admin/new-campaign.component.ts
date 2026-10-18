@@ -5,7 +5,7 @@ import { AdminApi, EnquiryQuery, downloadBlob } from './admin-api.service';
 import { IconComponent } from '../core/icon.component';
 import { errMsg } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
-import { Channels, ImportResult, WaTemplate, WalletInfo, rupees } from '../core/models';
+import { Channels, ImportResult, SmsTemplate, WaTemplate, WalletInfo, rupees } from '../core/models';
 
 type ChannelKey = 'whatsapp' | 'email' | 'sms';
 type Source = 'excel' | 'given' | 'range' | 'all' | 'pasted';
@@ -116,6 +116,7 @@ export class NewCampaignComponent {
       if (!this.smsTemplateId) this.smsTemplateId = c.smsTemplate ?? '';
       if (c.whatsappApi) this.loadTemplates();
     });
+    this.api.smsTemplates().subscribe({ next: t => this.smsList.set(t), error: () => {} });
     if (this.given?.ids) this.enquiryCount.set(this.given.ids.length);
     else if (this.given?.filter) this.api.enquiries(this.given.filter, 0, 1).subscribe(p => this.enquiryCount.set(p.total));
   }
@@ -225,6 +226,21 @@ export class NewCampaignComponent {
   // ---------- SMS (DLT template saved in MSG91) ----------
   /** MSG91 SMS template ID; pre-filled from the server's default. */
   smsTemplateId = '';
+  /** Templates saved in Settings → SMS templates. */
+  readonly smsList = signal<SmsTemplate[]>([]);
+  /** Picked saved template: null = none yet, 0 = "Other" (type the ID and text by hand). */
+  readonly smsPick = signal<number | null>(null);
+
+  smsFromList(): boolean { return !!this.smsPick(); }
+
+  /** Picking a saved template fills its MSG91 ID and approved text (read-only); its blanks start empty. */
+  pickSms(id: number | null) {
+    this.smsPick.set(id);
+    this.smsVars = {};
+    const t = this.smsList().find(x => x.id === id);
+    if (t) { this.smsTemplateId = t.templateId; this.message = t.text; }
+    else if (id === 0) { this.smsTemplateId = this.ch()?.smsTemplate ?? ''; this.message = ''; }
+  }
   /** Values for the SMS text's ##variables## (the same for everyone; may contain {name} / {voucher}). */
   smsVars: Record<string, string> = {};
 
@@ -353,6 +369,7 @@ export class NewCampaignComponent {
       if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }
     }
     if (this.channel === 'sms') {
+      if (this.smsList().length && this.smsPick() === null) { this.error.set('Choose an SMS template from the list.'); return; }
       if (!this.smsTemplateId.trim()) { this.error.set('Enter the MSG91 SMS template ID (MSG91 → SMS → Templates).'); return; }
       if (!this.message.trim()) { this.error.set('Paste the approved SMS text exactly as in MSG91.'); return; }
       const empty = this.smsTyped().find(k => !this.smsVars[k]?.trim());

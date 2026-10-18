@@ -66,6 +66,7 @@ function stub(channels: Channels = NONE) {
     attend: jasmine.createSpy('attend').and.returnValue(of(msg({ status: 'sent', attendedAt: '2026-10-12T10:05:00' }))),
     whatsappTemplates: jasmine.createSpy('whatsappTemplates').and.returnValue(of({ available: false, templates: [], message: 'Template list isn\'t available' })),
     uploadHeaderImage: jasmine.createSpy('uploadHeaderImage').and.returnValue(of({ url: 'https://halappa.example/uploads/ev.jpg', path: '/uploads/ev.jpg' })),
+    smsTemplates: jasmine.createSpy('smsTemplates').and.returnValue(of([] as any[])),
   };
 }
 
@@ -197,6 +198,41 @@ describe('New bulk message', () => {
       expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
         channel: 'sms', template: 'TPL-DEFAULT', message: SMS_TEXT,
         smsVars: { name: '', date: '25-10-2026', place: 'Madhugiri', voucher: '' },
+      }));
+    });
+
+    it('saved templates: pick one from the list, its ID and text fill in (read-only), then only the blanks', async () => {
+      history.replaceState({}, '');
+      api = stub(ALL);
+      api.smsTemplates.and.returnValue(of([
+        { id: 1, name: 'General invitation', templateId: '6ad492ac244b', text: SMS_TEXT },
+        { id: 2, name: 'Students competition', templateId: '6ad49208a940', text: 'Students ##event## on ##date##' },
+      ]));
+      configure(api);
+      spyOn(TestBed.inject(ConfirmService), 'ask').and.resolveTo(true);
+      f = TestBed.createComponent(NewCampaignComponent);
+      c = f.componentInstance;
+      f.detectChanges();
+      c.pickChannel('sms');
+      c.source = 'pasted';
+      c.pasted = '9845012345';
+      f.detectChanges();
+      const options = [...f.nativeElement.querySelectorAll('select[name="smsPick"] option')].map((o: any) => o.textContent.trim());
+      expect(options).toEqual(['— Choose an SMS template (2) —', 'General invitation', 'Students competition', 'Other: type the template ID and text']);
+
+      await c.send();
+      expect(c.error()).toBe('Choose an SMS template from the list.');
+
+      c.pickSms(2);
+      f.detectChanges();
+      expect(c.smsTemplateId).toBe('6ad49208a940');
+      expect(c.message).toBe('Students ##event## on ##date##');
+      expect(f.nativeElement.querySelector('input[name="smsTemplateId"]')).toBeNull(); // ID comes from the saved template
+      c.setSmsVar('event', 'Essay contest');
+      c.setSmsVar('date', '25-10-2026');
+      await c.send();
+      expect(api.createCampaign.calls.mostRecent().args[0]).toEqual(jasmine.objectContaining({
+        channel: 'sms', template: '6ad49208a940', message: 'Students ##event## on ##date##', smsVars: { event: 'Essay contest', date: '25-10-2026' },
       }));
     });
 

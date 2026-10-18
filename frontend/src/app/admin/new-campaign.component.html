@@ -191,19 +191,35 @@
     </div>
   }
   @if (channel === 'sms') {
-    <div class="field">
-      <label>MSG91 SMS template ID <span class="muted">— from MSG91 → SMS → Templates (the DLT-approved template)</span></label>
-      <input class="input" name="smsTemplateId" [(ngModel)]="smsTemplateId" maxlength="100" placeholder="e.g. 6712ab34cd56ef7890123456">
-    </div>
+    @if (smsList().length) {
+      <div class="field">
+        <label>SMS template <span class="muted">— saved in Settings → SMS templates</span></label>
+        <select class="input" name="smsPick" [ngModel]="smsPick()" (ngModelChange)="pickSms($event)">
+          <option [ngValue]="null">— Choose an SMS template ({{ smsList().length }}) —</option>
+          @for (t of smsList(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+          <option [ngValue]="0">Other: type the template ID and text</option>
+        </select>
+      </div>
+    } @else {
+      <p class="muted">Tip: save your DLT-approved SMS once in <b>Settings → SMS templates</b> to pick it here next time.</p>
+    }
+    @if (!smsFromList()) {
+      <div class="field">
+        <label>MSG91 SMS template ID <span class="muted">— from MSG91 → SMS → Templates (the DLT-approved template)</span></label>
+        <input class="input" name="smsTemplateId" [(ngModel)]="smsTemplateId" maxlength="100" placeholder="e.g. 6712ab34cd56ef7890123456">
+      </div>
+    }
   }
   @if (!templateMode()) {
     <div class="field">
-      @if (channel === 'sms') {
+      @if (channel === 'sms' && smsFromList()) {
+        <label>SMS text <span class="muted">— the DLT-approved wording, so it can't be changed here; fill in the blanks below</span></label>
+      } @else if (channel === 'sms') {
         <label>Approved SMS text <span class="muted">— paste it exactly as in MSG91, with its ##variables##; ##name## and ##voucher## fill themselves</span></label>
       } @else {
         <label>Message <span class="muted">— {{ nameToken }} and {{ voucherToken }} are filled in for each person</span></label>
       }
-      <textarea class="input" rows="8" [(ngModel)]="message" maxlength="4000"></textarea>
+      <textarea class="input" rows="8" [(ngModel)]="message" maxlength="4000" [readonly]="channel === 'sms' && smsFromList()"></textarea>
       <span class="muted">{{ message.length }} / 4000</span>
     </div>
     @if (!voucherOn && message.includes(voucherToken)) { <p class="warn">The message has {{ voucherToken }} but vouchers are switched off — it will be left blank.</p> }

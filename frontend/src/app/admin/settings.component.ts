@@ -6,11 +6,12 @@ import { ApiService } from '../core/api.service';
 import { errMsg } from '../core/auth.service';
 import { Settings } from '../core/models';
 import { EyeToggleComponent } from '../core/eye-toggle.component';
+import { SmsTemplatesComponent } from './sms-templates.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, EyeToggleComponent, IconComponent],
+  imports: [FormsModule, EyeToggleComponent, IconComponent, SmsTemplatesComponent],
   styleUrl: './admin.scss',
   templateUrl: './settings.component.html',
 })
