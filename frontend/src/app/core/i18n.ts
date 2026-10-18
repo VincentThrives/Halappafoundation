@@ -29,8 +29,8 @@ export const DICT: Record<string, { en: string; kn: string }> = {
   'cat.all': { en: 'All', kn: 'ಎಲ್ಲಾ' },
   'cat.timeline': { en: 'Timeline', kn: 'ಕಾಲಾನುಕ್ರಮ' },
   'cat.lighter-side': { en: 'The Lighter Side', kn: 'ಹಗುರ ಕ್ಷಣಗಳು' },
-  'cat.election-rally': { en: 'Election Rally', kn: 'ಚುನಾವಣಾ ರ್‍ಯಾಲಿ' },
-  'cat.government-events': { en: 'Government Events', kn: 'ಸರ್ಕಾರಿ ಕಾರ್ಯಕ್ರಮಗಳು' },
+  'cat.election-rally': { en: 'Political Activism', kn: 'ರಾಜಕೀಯ ಚಟುವಟಿಕೆಗಳು' },
+  'cat.government-events': { en: 'Connecting with the People', kn: 'ಜನಸಂಪರ್ಕ' },
   'cat.spiritual-side': { en: 'Spiritual Side', kn: 'ಆಧ್ಯಾತ್ಮಿಕ ಕ್ಷಣಗಳು' },
 
   // Hero
