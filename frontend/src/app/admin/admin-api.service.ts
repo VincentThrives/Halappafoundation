@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { map } from 'rxjs';
 import { toParams } from '../core/api.service';
-import { CampaignView, Channels, Enquiry, GalleryItem, ImportResult, InboxThread, Message, Page, Post, Settings, TimelineEntry, WaTemplates,
+import { CampaignView, Channels, Enquiry, GalleryItem, ImportResult, InboxThread, Message, Page, Post, Settings, SmsTemplate, TimelineEntry, WaTemplates,
   WalletAdmin, WalletInfo, WalletLogQuery, WalletRates, WalletTxn } from '../core/models';
 
 export interface EnquiryQuery {
@@ -123,6 +123,13 @@ export class AdminApi {
   uploadPhotos(fd: FormData) { return this.http.post<GalleryItem[]>('/api/admin/gallery', fd); }
   updatePhoto(id: number, body: Partial<GalleryItem>) { return this.http.put<GalleryItem>(`/api/admin/gallery/${id}`, body); }
   deletePhoto(id: number) { return this.http.delete(`/api/admin/gallery/${id}`); }
+
+  // SMS templates (Settings)
+  smsTemplates() { return this.http.get<SmsTemplate[]>('/api/admin/sms-templates'); }
+  saveSmsTemplate(id: number | null, body: { name: string; templateId: string; text: string }) {
+    return id ? this.http.put<SmsTemplate>(`/api/admin/sms-templates/${id}`, body) : this.http.post<SmsTemplate>('/api/admin/sms-templates', body);
+  }
+  deleteSmsTemplate(id: number) { return this.http.delete(`/api/admin/sms-templates/${id}`); }
 
   // Timeline
   timeline() { return this.http.get<TimelineEntry[]>('/api/admin/timeline'); }

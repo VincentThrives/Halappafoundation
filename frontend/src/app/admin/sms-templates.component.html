@@ -1,0 +1,52 @@
+<div class="card stack">
+  <div class="sms-head">
+    <h2>SMS templates</h2>
+    @if (editing() === null) { <button class="btn btn-sm btn-maroon" (click)="add()"><app-icon name="plus" /> Add template</button> }
+  </div>
+  <p class="muted">Save each DLT-approved SMS once. On Bulk messages → SMS, pick it from the list and fill in its blanks.</p>
+
+  @if (editing() !== null) {
+    <form class="sms-form stack" (ngSubmit)="save()">
+      <div class="grid2">
+        <div class="field"><label>Name <span class="muted">(only you see this)</span></label>
+          <input class="input" name="name" [(ngModel)]="name" maxlength="100" placeholder="General invitation"></div>
+        <div class="field"><label>MSG91 template ID <span class="muted">(MSG91 → SMS → Templates)</span></label>
+          <input class="input" name="templateId" [(ngModel)]="templateId" maxlength="60" placeholder="6ad492ac244b728bcb0…"></div>
+      </div>
+      <div class="field">
+        <label>Approved SMS text <span class="muted">— exactly as in MSG91, with ##variables## like ##event##, ##date##</span></label>
+        <textarea class="input" name="text" rows="4" [(ngModel)]="text" maxlength="2000"></textarea>
+        @if (dltForm()) { <p class="warn">This has DLT's {{ '{#var#}' }} form. Paste MSG91's text instead, where each blank looks like ##event##.</p> }
+        @else if (vars(text).length) {
+          <p class="muted">Blanks: @for (v of vars(text); track v) { <span class="tok">##{{ v }}##</span> }</p>
+        }
+      </div>
+      <div class="btns">
+        <button class="btn btn-sm" type="submit" [disabled]="busy()">{{ busy() ? 'Saving…' : 'Save template' }}</button>
+        <button class="btn btn-sm btn-ghost" type="button" (click)="close()">Cancel</button>
+      </div>
+    </form>
+  }
+
+  @if (msg()) {
+    <div class="alert" [class.ok]="msgOk()" [class.bad]="!msgOk()" role="status" aria-live="polite">
+      <app-icon [name]="msgOk() ? 'check' : 'close'" /><span>{{ msg() }}</span>
+    </div>
+  }
+
+  @for (t of items(); track t.id) {
+    <div class="sms-item">
+      <div class="sms-top">
+        <b>{{ t.name }}</b>
+        <code>{{ t.templateId }}</code>
+        <span class="acts">
+          <button class="btn btn-sm btn-ghost" (click)="edit(t)">Edit</button>
+          <button class="btn btn-sm btn-ghost" (click)="remove(t)">Delete</button>
+        </span>
+      </div>
+      <p class="sms-text">{{ t.text }}</p>
+    </div>
+  } @empty {
+    @if (editing() === null) { <p class="muted">No SMS templates yet. Click <b>Add template</b>.</p> }
+  }
+</div>

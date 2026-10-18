@@ -190,16 +190,59 @@
       <label class="opt"><input type="checkbox" [(ngModel)]="manual"> Send by hand with WhatsApp links instead (free text, no template)</label>
     </div>
   }
+  @if (channel === 'sms') {
+    @if (smsList().length) {
+      <div class="field">
+        <label>SMS template <span class="muted">— saved in Settings → SMS templates</span></label>
+        <select class="input" name="smsPick" [ngModel]="smsPick()" (ngModelChange)="pickSms($event)">
+          <option [ngValue]="null">— Choose an SMS template ({{ smsList().length }}) —</option>
+          @for (t of smsList(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+          <option [ngValue]="0">Other: type the template ID and text</option>
+        </select>
+      </div>
+    } @else {
+      <p class="muted">Tip: save your DLT-approved SMS once in <b>Settings → SMS templates</b> to pick it here next time.</p>
+    }
+    @if (!smsFromList()) {
+      <div class="field">
+        <label>MSG91 SMS template ID <span class="muted">— from MSG91 → SMS → Templates (the DLT-approved template)</span></label>
+        <input class="input" name="smsTemplateId" [(ngModel)]="smsTemplateId" maxlength="100" placeholder="e.g. 6712ab34cd56ef7890123456">
+      </div>
+    }
+  }
   @if (!templateMode()) {
     <div class="field">
-      <label>Message <span class="muted">— {{ nameToken }} and {{ voucherToken }} are filled in for each person</span></label>
-      <textarea class="input" rows="8" [(ngModel)]="message" maxlength="4000"></textarea>
+      @if (channel === 'sms' && smsFromList()) {
+        <label>SMS text <span class="muted">— the DLT-approved wording, so it can't be changed here; fill in the blanks below</span></label>
+      } @else if (channel === 'sms') {
+        <label>Approved SMS text <span class="muted">— paste it exactly as in MSG91, with its ##variables##; ##name## and ##voucher## fill themselves</span></label>
+      } @else {
+        <label>Message <span class="muted">— {{ nameToken }} and {{ voucherToken }} are filled in for each person</span></label>
+      }
+      <textarea class="input" rows="8" [(ngModel)]="message" maxlength="4000" [readonly]="channel === 'sms' && smsFromList()"></textarea>
       <span class="muted">{{ message.length }} / 4000</span>
     </div>
     @if (!voucherOn && message.includes(voucherToken)) { <p class="warn">The message has {{ voucherToken }} but vouchers are switched off — it will be left blank.</p> }
   }
   @if (channel === 'sms') {
-    <p class="note">SMS in India must match your DLT-approved template in MSG91 (variables <b>##name##</b> and <b>##voucher##</b>). The text here is kept for your records.</p>
+    @if (smsVarNames().length) {
+      <div class="vars">
+        <b>Fill in the blanks</b>
+        @for (k of smsVarNames(); track k) {
+          <div class="var">
+            <span class="tok">{{ smsTok(k) }}</span>
+            @if (smsAuto(k)) {
+              <span class="muted">{{ k.toLowerCase() === 'name' ? "Each person's name" : "Each person's voucher" }} — filled in automatically</span>
+            } @else {
+              <input class="input" [ngModel]="smsVars[k] ?? ''" (ngModelChange)="setSmsVar(k, $event)" maxlength="500"
+                     placeholder="Type the text, e.g. 25-10-2026 or Madhugiri">
+            }
+          </div>
+        }
+        <p class="muted">The same text goes to everyone, except ##name## and ##voucher##. Values must fit what DLT approved, or the SMS is blocked.</p>
+      </div>
+    }
+    <p class="note">SMS in India must match a DLT-approved template saved in MSG91. Variables look like <b>##date##</b>; the template ID and text both come from MSG91 → SMS → Templates.</p>
   }
   <div class="preview-msg">
     <small>{{ templateMode() ? 'Exactly what the first person receives' : 'Preview for the first person' }}</small>

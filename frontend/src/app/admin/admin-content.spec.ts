@@ -349,6 +349,7 @@ describe('Admin: Settings', () => {
       settings: jasmine.createSpy('settings').and.returnValue(of({ phone: '9900123406', facebook: '' })),
       saveSettings: jasmine.createSpy('saveSettings').and.callFake((s: any) => of(s)),
       changePassword: jasmine.createSpy('changePassword').and.returnValue(of({})),
+      smsTemplates: jasmine.createSpy('smsTemplates').and.returnValue(of([])),
     };
     const pub = { refreshSettings: jasmine.createSpy('refreshSettings') };
     setup(a, [{ provide: ApiService, useValue: pub }]);

@@ -19,6 +19,9 @@ public interface MessageRepository extends MongoRepository<Message, Long>, Messa
 
     Optional<Message> findFirstByProviderIdAndDirection(String providerId, String direction);
 
+    Optional<Message> findFirstByChannelAndContactAndDirectionAndUpdatedAtAfterOrderByIdDesc(
+            String channel, String contact, String direction, java.time.LocalDateTime after);
+
     boolean existsByProviderIdAndDirection(String providerId, String direction);
 
     List<Message> findByVoucherIgnoreCaseAndDirectionOrderByIdAsc(String voucher, String direction);

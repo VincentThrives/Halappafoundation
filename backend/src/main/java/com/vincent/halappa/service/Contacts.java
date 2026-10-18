@@ -57,6 +57,42 @@ public final class Contacts {
         return max;
     }
 
+    private static final java.util.regex.Pattern SMS_VAR = java.util.regex.Pattern.compile("##([A-Za-z0-9_]+)##");
+
+    /** The ##variables## in an MSG91 SMS template text, in order, without repeats (e.g. [name, date, voucher]). */
+    public static List<String> smsVariables(String text) {
+        if (text == null) return List.of();
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        var m = SMS_VAR.matcher(text);
+        while (m.find()) out.add(m.group(1));
+        return List.copyOf(out);
+    }
+
+    /**
+     * Values of an SMS template's ##variables## for one person. Each configured value may contain {name} and {voucher};
+     * ##name## and ##voucher## fill themselves when not configured. No variables in the text = name and voucher.
+     */
+    public static java.util.Map<String, String> smsValues(java.util.Map<String, String> configured, List<String> vars,
+                                                          String name, String voucher) {
+        String n = name == null || name.isBlank() ? "Friend" : name.trim();
+        List<String> keys = vars == null || vars.isEmpty() ? List.of("name", "voucher") : vars;
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        for (String k : keys) {
+            String v = configured == null ? null : configured.get(k);
+            if (v == null || v.isBlank()) v = "name".equalsIgnoreCase(k) ? "{name}" : "voucher".equalsIgnoreCase(k) ? "{voucher}" : "";
+            out.put(k, personalise(v, n, voucher));
+        }
+        return out;
+    }
+
+    /** The SMS text with its ##variables## replaced (what the person receives). */
+    public static String fillSms(String text, java.util.Map<String, String> values) {
+        if (text == null) return "";
+        String out = text;
+        for (var e : values.entrySet()) out = out.replace("##" + e.getKey() + "##", e.getValue());
+        return out;
+    }
+
     public static String personalise(String msg, String name, String voucher) {
         if (msg == null) return "";
         String n = name == null || name.isBlank() ? "" : name.trim();

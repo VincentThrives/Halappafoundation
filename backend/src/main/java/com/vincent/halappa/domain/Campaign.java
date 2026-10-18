@@ -33,6 +33,8 @@ public class Campaign implements Sequenced {
     private java.util.List<String> templateParams;
     /** Public link of the photo shown at the top of each message (templates with an IMAGE header). */
     private String headerImage;
+    /** SMS: values for the template's ##variables## (may contain {name} and {voucher}); template = MSG91 template ID. */
+    private java.util.Map<String, String> smsVars;
 
     /** none | auto | excel | fixed */
     private String voucherMode = "none";

@@ -5,7 +5,7 @@ import { AdminApi, EnquiryQuery, downloadBlob } from './admin-api.service';
 import { IconComponent } from '../core/icon.component';
 import { errMsg } from '../core/auth.service';
 import { ConfirmService } from '../core/confirm.service';
-import { Channels, ImportResult, WaTemplate, WalletInfo, rupees } from '../core/models';
+import { Channels, ImportResult, SmsTemplate, WaTemplate, WalletInfo, rupees } from '../core/models';
 
 type ChannelKey = 'whatsapp' | 'email' | 'sms';
 type Source = 'excel' | 'given' | 'range' | 'all' | 'pasted';
@@ -111,7 +111,12 @@ export class NewCampaignComponent {
 
   constructor() {
     this.api.wallet().subscribe({ next: w => this.wallet.set(w), error: () => {} });
-    this.api.channels().subscribe(c => { this.ch.set(c); if (c.whatsappApi) this.loadTemplates(); });
+    this.api.channels().subscribe(c => {
+      this.ch.set(c);
+      if (!this.smsTemplateId) this.smsTemplateId = c.smsTemplate ?? '';
+      if (c.whatsappApi) this.loadTemplates();
+    });
+    this.api.smsTemplates().subscribe({ next: t => this.smsList.set(t), error: () => {} });
     if (this.given?.ids) this.enquiryCount.set(this.given.ids.length);
     else if (this.given?.filter) this.api.enquiries(this.given.filter, 0, 1).subscribe(p => this.enquiryCount.set(p.total));
   }
@@ -218,6 +223,44 @@ export class NewCampaignComponent {
     return this.channel === 'whatsapp' && !!this.ch()?.whatsappApi && !this.manual && !!this.templateName.trim();
   }
 
+  // ---------- SMS (DLT template saved in MSG91) ----------
+  /** MSG91 SMS template ID; pre-filled from the server's default. */
+  smsTemplateId = '';
+  /** Templates saved in Settings → SMS templates. */
+  readonly smsList = signal<SmsTemplate[]>([]);
+  /** Picked saved template: null = none yet, 0 = "Other" (type the ID and text by hand). */
+  readonly smsPick = signal<number | null>(null);
+
+  smsFromList(): boolean { return !!this.smsPick(); }
+
+  /** Picking a saved template fills its MSG91 ID and approved text (read-only); its blanks start empty. */
+  pickSms(id: number | null) {
+    this.smsPick.set(id);
+    this.smsVars = {};
+    const t = this.smsList().find(x => x.id === id);
+    if (t) { this.smsTemplateId = t.templateId; this.message = t.text; }
+    else if (id === 0) { this.smsTemplateId = this.ch()?.smsTemplate ?? ''; this.message = ''; }
+  }
+  /** Values for the SMS text's ##variables## (the same for everyone; may contain {name} / {voucher}). */
+  smsVars: Record<string, string> = {};
+
+  /** The ##variables## in the pasted SMS text, in order. */
+  smsVarNames(): string[] { return smsVariables(this.message); }
+  /** ##name## and ##voucher## fill themselves for each person. */
+  smsAuto(k: string): boolean { return /^(name|voucher)$/i.test(k); }
+  smsTyped(): string[] { return this.smsVarNames().filter(k => !this.smsAuto(k)); }
+  setSmsVar(k: string, v: string) { this.smsVars = { ...this.smsVars, [k]: v }; }
+  smsTok(k: string) { return '##' + k + '##'; }
+
+  private smsPreview(): string {
+    const values: Record<string, string> = {};
+    for (const k of this.smsVarNames()) {
+      const v = this.smsVars[k]?.trim() || (/^name$/i.test(k) ? '{name}' : /^voucher$/i.test(k) ? '{voucher}' : '');
+      values[k] = personalise(v, this.firstName(), this.sampleVoucher()) || '…';
+    }
+    return fillSms(this.message, values);
+  }
+
   // ---------- recipients ----------
   pick(e: Event) { const f = (e.target as HTMLInputElement).files?.[0]; if (f) this.upload(f); }
   drop(e: DragEvent) { e.preventDefault(); this.over.set(false); const f = e.dataTransfer?.files?.[0]; if (f) this.upload(f); }
@@ -283,6 +326,7 @@ export class NewCampaignComponent {
       return fillTemplate(this.templateBody, values);
     }
     if (this.templateMode()) return '[template ' + this.templateName.trim() + '] — paste its text above to see the full message';
+    if (this.channel === 'sms' && this.smsVarNames().length) return this.smsPreview();
     return personalise(this.message, this.firstName(), this.sampleVoucher());
   }
   previewSubject() { return personalise(this.subject, this.firstName(), this.sampleVoucher()); }
@@ -291,7 +335,9 @@ export class NewCampaignComponent {
   body(): Record<string, unknown> {
     const b: Record<string, unknown> = {
       name: this.name, channel: this.channel, subject: this.subject, message: this.message,
-      template: this.channel === 'whatsapp' && !this.manual ? this.templateName : '', templateLang: this.templateLang,
+      template: this.channel === 'whatsapp' && !this.manual ? this.templateName : this.channel === 'sms' ? this.smsTemplateId.trim() : '',
+      templateLang: this.templateLang,
+      smsVars: this.channel === 'sms' ? Object.fromEntries(this.smsVarNames().map(k => [k, this.smsVars[k] ?? ''])) : {},
       templateBody: this.templateMode() ? this.templateBody : '',
       templateParams: this.templateMode() && this.templateBody.trim() ? this.templateParams : [],
       templateHeader: this.templateMode() ? this.templateHeader : '',
@@ -321,6 +367,13 @@ export class NewCampaignComponent {
     if (this.templateMode() && this.templateBody.trim()) {
       const missing = this.templateParams.findIndex(v => !v.trim());
       if (missing >= 0) { this.error.set('Fill in ' + this.tplVar(missing) + ' of the template.'); return; }
+    }
+    if (this.channel === 'sms') {
+      if (this.smsList().length && this.smsPick() === null) { this.error.set('Choose an SMS template from the list.'); return; }
+      if (!this.smsTemplateId.trim()) { this.error.set('Enter the MSG91 SMS template ID (MSG91 → SMS → Templates).'); return; }
+      if (!this.message.trim()) { this.error.set('Paste the approved SMS text exactly as in MSG91.'); return; }
+      const empty = this.smsTyped().find(k => !this.smsVars[k]?.trim());
+      if (empty) { this.error.set('Fill in ' + this.smsTok(empty) + ' of the SMS.'); return; }
     }
     if (this.short()) {
       this.error.set(`Not enough balance: this send costs ${rupees(this.costPaise())} and the wallet has ${rupees(this.wallet()!.balancePaise)}. Ask Vincent Thrives to recharge.`);
@@ -353,6 +406,20 @@ export function templateVariables(body: string): number {
 export function fillTemplate(body: string, values: string[]): string {
   let out = body ?? '';
   values.forEach((v, i) => { out = out.replaceAll('{{' + (i + 1) + '}}', v); });
+  return out;
+}
+
+/** The ##variables## of an MSG91 SMS template text, in order, without repeats. */
+export function smsVariables(text: string): string[] {
+  const out: string[] = [];
+  for (const m of (text ?? '').matchAll(/##([A-Za-z0-9_]+)##/g)) if (!out.includes(m[1])) out.push(m[1]);
+  return out;
+}
+
+/** Puts the values into the SMS text's ##variables## (same as the server). */
+export function fillSms(text: string, values: Record<string, string>): string {
+  let out = text ?? '';
+  for (const [k, v] of Object.entries(values)) out = out.replaceAll('##' + k + '##', v);
   return out;
 }
 

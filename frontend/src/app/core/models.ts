@@ -52,11 +52,16 @@ export interface CampaignView { campaign: Campaign; stats: CampaignStats; }
 export interface WaTemplate { name: string; language: string; status: string; body: string | null; variables: number; header?: string | null; }
 export interface WaTemplates { available: boolean; templates: WaTemplate[]; message?: string; }
 
+/** A DLT-approved SMS template saved in Settings: MSG91 template ID + its text with ##variables##. */
+export interface SmsTemplate { id: number; name: string; templateId: string; text: string; updatedBy?: string; updatedAt?: string; }
+
 export interface Channels {
   whatsappApi: boolean; whatsappInbound: boolean; email: boolean; emailInbound: boolean;
   /** "meta" or "msg91"; MSG91 sends approved templates only. */
   whatsappProvider?: string; whatsappTemplatesOnly?: boolean;
   sms: boolean; smsInbound: boolean; maxRecipients: number;
+  /** Default MSG91 SMS template ID from the server (MSG91_FLOW_ID); "" when not set. */
+  smsTemplate?: string;
 }
 
 export interface ImportRow { row: number; name?: string; phone?: string; email?: string; voucher?: string; }

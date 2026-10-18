@@ -90,8 +90,10 @@ Important:
 - **WhatsApp invitations need an approved template** in Meta (free text only reaches people who messaged in the last 24 h).
   In the template, `{{1}}` = name and `{{2}}` = voucher. To send 5000 in a day the number needs Meta's 10K messaging tier.
   A number on the Cloud API can't be used in the normal WhatsApp app at the same time.
-- **SMS in India needs DLT**: register the sender ID and template (with variables for name and voucher), create a
-  Flow in MSG91 using `##name##` and `##voucher##`, and put its id in `MSG91_FLOW_ID`.
+- **SMS in India needs DLT**: register the sender ID (header) and content template on a DLT portal, then add the
+  template in MSG91 → SMS → Templates with `##variables##` (e.g. `##name##`, `##date##`, `##voucher##`). On each send
+  the admin gives the MSG91 template ID (pre-filled from `MSG91_FLOW_ID` when set), pastes the approved text and fills
+  the variables; `##name##` and `##voucher##` fill themselves for each person.
 - **Email** at 5000/day needs a mailbox plan that allows it (e.g. Gmail caps at ~500/day). Sends are paced (`CAMPAIGN_EMAIL_DELAY_MS`).
 - Sends run in the background and survive a server restart (queued messages continue).
 
